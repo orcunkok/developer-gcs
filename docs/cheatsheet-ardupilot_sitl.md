@@ -224,3 +224,15 @@ arm throttle force
 mode loiter       # hold position
 mode rtl          # return and land
 ```
+## Mode Quick Ref
+
+ Mode   | Number 
+|-------|--------|
+MANUAL  |   0
+FBWA    |   5
+FBWB    |   6
+AUTO    |   10
+LOITER  |   12
+TAKEOFF |   13
+RTL     |   11
+GUIDED  |   15
