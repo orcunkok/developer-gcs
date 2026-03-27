@@ -1,0 +1,49 @@
+# Test Mission — Developer GCS SITL
+# Sequence: takeoff → cruise 3 waypoints → return to launch → land
+# Home assumed at ArduPilot SITL default: lat -35.363261, lon 149.165230
+
+mission: test_mission_001
+
+home:
+  lat: -35.363261
+  lon: 149.165230
+  alt: 584 # meters AMSL (Canberra SITL default)
+
+phases:
+  - id: takeoff
+    type: takeoff
+    params:
+      target_alt: 100 # meters AGL
+
+  - id: waypoint_1
+    type: waypoint
+    params:
+      lat: -35.359830
+      lon: 149.165230
+      alt: 100 # meters AGL
+      speed: 20 # m/s
+
+  - id: waypoint_2
+    type: waypoint
+    params:
+      lat: -35.359830
+      lon: 149.170000
+      alt: 100
+      speed: 20
+
+  - id: waypoint_3
+    type: waypoint
+    params:
+      lat: -35.363261
+      lon: 149.170000
+      alt: 100
+      speed: 20
+
+  - id: return
+    type: rtl
+
+  - id: land
+    type: land
+    params:
+      lat: -35.363261
+      lon: 149.165230

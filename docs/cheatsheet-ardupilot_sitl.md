@@ -91,7 +91,7 @@ wp load path/to/mission.waypoints  # load a mission file
 wp save path/to/mission.waypoints  # save current mission to file
 wp editor                          # interactive waypoint editor
 wp clear                           # clear all waypoints
-
+wp 1                               # go to wp index 1
 # Fly to a specific waypoint index
 guided <lat> <lon> <alt>           # fly to coordinates in GUIDED mode
 ```
@@ -134,37 +134,62 @@ attitude                # roll, pitch, yaw live
 
 ```bash
 # GPS
-param set SIM_GPS_DISABLE 1     # cut GPS entirely
-param set SIM_GPS_DISABLE 0     # restore GPS
-param set SIM_GPS_NOISE 5       # add position noise
-param set SIM_GPS_DELAY 2       # add GPS latency (frames)
+param set SIM_GPS1_ENABLE 0     # cut GPS entirely
+param set SIM_GPS1_ENABLE 1     # restore GPS
+param set SIM_GPS1_NOISE 5      # position noise (meters)
+param set SIM_GPS1_LAG_MS 500   # GPS latency in ms (default 100)
+param set SIM_GPS1_NUMSATS 3    # reduce satellite count
+param set SIM_GPS1_GLTCH_X 10  # position glitch east (meters)
+param set SIM_GPS1_GLTCH_Y 10  # position glitch north (meters)
+param set SIM_GPS1_JAM 1        # simulate GPS jamming
+param set SIM_GPS1_ALT_OFS 50  # altitude offset error (meters)
 
-# IMU / Accelerometer
-param set SIM_ACC_BIAS_X 0.5    # accel bias on X axis
-param set SIM_GYR_RND 5         # gyro noise
+# IMU / Accelerometer (IMU 1 — repeat with SIM_ACC2_* for second IMU)
+param set SIM_ACC1_BIAS_X 0.5   # accel bias on X axis
+param set SIM_ACC1_BIAS_Y 0.5   # accel bias on Y axis
+param set SIM_ACC1_RND 5        # accel noise
+param set SIM_ACCEL1_FAIL 1     # fail accelerometer entirely
+param set SIM_GYR1_BIAS_X 0.5  # gyro bias on X axis
+param set SIM_GYR1_RND 5        # gyro noise
+param set SIM_GYR_FAIL_MSK 1    # fail gyro (bitmask: 1=IMU1, 2=IMU2, 4=IMU3)
 
-# Barometer
-param set SIM_BARO_RND 5        # baro noise
+# Barometer — check available params with: param show SIM_BARO*
+# (param names vary by version)
 
 # Airspeed
-param set SIM_ARSPD_RND 5       # airspeed sensor noise
-param set SIM_ARSPD_FAIL 1      # fail airspeed sensor
+param set SIM_ARSPD_RND 5       # airspeed noise (primary sensor)
+param set SIM_ARSPD_FAIL 1      # fail primary airspeed sensor
+param set SIM_ARSPD2_RND 5      # airspeed noise (secondary sensor)
+param set SIM_ARSPD2_FAIL 1     # fail secondary airspeed sensor
 
 # Battery
-param set SIM_BATT_DRAIN 5      # drain rate multiplier
+param set SIM_BATT_VOLTAGE 10.0 # set battery voltage (default 12.6V)
+param set SIM_BATT_CAP_AH 2.0   # set battery capacity in Ah
 
-# Link degradation (mavproxy flag at launch)
-mavproxy.py --master=udp:127.0.0.1:14550 --loss=20   # 20% packet loss
+# Link degradation — use tc on loopback (no mavproxy --loss flag exists)
+sudo tc qdisc add dev lo root netem loss 20%    # 20% packet loss
+sudo tc qdisc change dev lo root netem loss 50% # increase loss
+sudo tc qdisc del dev lo root                   # remove when done
 
 # Reset all SIM params to nominal
-param set SIM_GPS_DISABLE 0
-param set SIM_GPS_NOISE 0
-param set SIM_ACC_BIAS_X 0
-param set SIM_GYR_RND 0
-param set SIM_BARO_RND 0
+param set SIM_GPS1_ENABLE 1
+param set SIM_GPS1_NOISE 0
+param set SIM_GPS1_LAG_MS 100
+param set SIM_GPS1_NUMSATS 10
+param set SIM_GPS1_GLTCH_X 0
+param set SIM_GPS1_GLTCH_Y 0
+param set SIM_GPS1_JAM 0
+param set SIM_GPS1_ALT_OFS 0
+param set SIM_ACC1_BIAS_X 0
+param set SIM_ACC1_BIAS_Y 0
+param set SIM_ACC1_RND 0
+param set SIM_ACCEL1_FAIL 0
+param set SIM_GYR1_BIAS_X 0
+param set SIM_GYR1_RND 0
+param set SIM_GYR_FAIL_MSK 0
 param set SIM_ARSPD_RND 0
 param set SIM_ARSPD_FAIL 0
-param set SIM_BATT_DRAIN 0
+param set SIM_BATT_VOLTAGE 12.6
 ```
 
 ---

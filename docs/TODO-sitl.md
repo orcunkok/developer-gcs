@@ -53,20 +53,22 @@ SITL must emit these MAVLink messages for the GCS protocol adapter to consume:
 | `GLOBAL_POSITION_INT` | lat, lon, alt, relative alt, vx/vy/vz, hdg |
 | `RC_CHANNELS` | channel values (for aileron deflection correlation in FLY workspace) |
 
-- [ ] Confirm each message appears in mavproxy output or via `--console` in SITL
+- [x] Confirm each message appears in mavproxy output or via `--console` in SITL
 
 ---
 
 ## 4. Load a Repeatable Test Mission
 
-- [ ] Write a plain YAML mission that maps to MAVLink waypoint format:
+- [x] Write a plain YAML mission that maps to MAVLink waypoint format:
   ```
   takeoff → cruise to 3 waypoints → return to launch → land
   ```
-- [ ] Convert to `.waypoints` format (QGC-compatible) for loading into SITL
-- [ ] Load via mavproxy: `wp load missions/test_mission.waypoints`
-- [ ] Verify aircraft executes the full sequence in AUTO mode
-- [ ] Save the `.waypoints` file at `missions/test_mission.waypoints` in the repo
+  File: `sitl/test_mission.yaml`
+- [x] Convert to `.waypoints` format (QGC-compatible) for loading into SITL
+  File: `sitl/test_mission.waypoints`
+- [x] Load via mavproxy: `wp load sitl/test_mission.waypoints`
+- [x] Verify aircraft executes the full sequence in AUTO mode
+- [x] Save the `.waypoints` file at `sitl/test_mission.waypoints` in the repo
 
 ---
 
@@ -74,10 +76,9 @@ SITL must emit these MAVLink messages for the GCS protocol adapter to consume:
 
 SITL supports failure simulation via `param set` and MAVLink commands. Verify each:
 
-- [ ] **GPS dropout:** `param set SIM_GPS_DISABLE 1` → observe `GPS_RAW_INT` fix_type drops
-- [ ] **GPS noise:** `param set SIM_GPS_NOISE 5` → position jitter visible
-- [ ] **Link degradation:** introduce packet loss via `tc qdisc` on loopback or mavproxy `--loss` flag
-- [ ] **Sensor noise (IMU):** `param set SIM_ACC_BIAS_X 0.5` → attitude drift visible
+- [x] **GPS dropout:** `param set SIM_GPS1_ENABLE 0` → observe `GPS_RAW_INT` fix_type drops
+- [x] **GPS noise:** `param set SIM_GPS1_NOISE 5` → position jitter visible
+- [ ] **Sensor noise (IMU):** `param set SIM_ACC1_BIAS_X 0.5` → attitude drift visible
 - [ ] Document the param names and reset values in a table at the bottom of this file
 
 ---
@@ -135,14 +136,23 @@ Before starting the protocol adapter, confirm all of these:
 
 | Failure | ArduPilot Param | Value to Inject | Reset Value |
 |---------|----------------|-----------------|-------------|
-| GPS disable | `SIM_GPS_DISABLE` | 1 | 0 |
-| GPS noise | `SIM_GPS_NOISE` | 3–10 | 0 |
-| GPS delay | `SIM_GPS_DELAY` | 1–5 | 0 |
-| Baro noise | `SIM_BARO_RND` | 5 | 0 |
+| GPS disable | `SIM_GPS1_ENABLE` | 0 | 1 |
+| GPS noise | `SIM_GPS1_NOISE` | 3–10 | 0 |
+| GPS delay | `SIM_GPS1_LAG_MS` | 500 | 100 |
+| GPS satellite count | `SIM_GPS1_NUMSATS` | 3 | 10 |
+| GPS position glitch | `SIM_GPS1_GLTCH_X/Y` | 10 | 0 |
+| GPS jamming | `SIM_GPS1_JAM` | 1 | 0 |
+| GPS altitude offset | `SIM_GPS1_ALT_OFS` | 50 | 0 |
+| Baro noise | check `param show SIM_BARO*` | varies | 0 |
 | Airspeed noise | `SIM_ARSPD_RND` | 5 | 0 |
-| IMU accel bias | `SIM_ACC_BIAS_X/Y/Z` | 0.5 | 0 |
-| IMU gyro noise | `SIM_GYR_RND` | 5 | 0 |
-| Battery drain rate | `SIM_BATT_DRAIN` | 1–5 | 0 |
+| Airspeed fail | `SIM_ARSPD_FAIL` | 1 | 0 |
+| IMU accel bias | `SIM_ACC1_BIAS_X/Y/Z` | 0.5 | 0 |
+| IMU accel noise | `SIM_ACC1_RND` | 5 | 0 |
+| IMU accel fail | `SIM_ACCEL1_FAIL` | 1 | 0 |
+| IMU gyro bias | `SIM_GYR1_BIAS_X/Y/Z` | 0.5 | 0 |
+| IMU gyro noise | `SIM_GYR1_RND` | 5 | 0 |
+| IMU gyro fail | `SIM_GYR_FAIL_MSK` | 1 | 0 |
+| Battery voltage | `SIM_BATT_VOLTAGE` | 10.0 | 12.6 |
 
 ---
 

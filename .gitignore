@@ -23,3 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 .gstack/
+
+#sitl
+terrain
+eeprom.bin
+mav.tlog
+mav.tlog.raw
+mav.parm
+way.txt
