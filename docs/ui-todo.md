@@ -4,11 +4,11 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 
 ## Chrome Scaffold
 
-- [ ] Application shell renders with correct proportions: topbar, left pane, primary area, right pane, bottom strip
-- [ ] All panes are empty placeholders. No content, just layout and borders
-- [ ] Topbar exists as a single fixed-height bar across the full width
-- [ ] Left pane is fixed width, does not scroll, does not collapse yet
-- [ ] Right pane exists at correct width, collapsible to a thin strip
+- [X] Application shell renders with correct proportions: topbar, left pane, primary area, right pane, bottom strip
+- [X] All panes are empty placeholders. No content, just layout and borders
+- [X] Topbar exists as a single fixed-height bar across the full width
+- [X] Left pane is fixed width, does not scroll, does not collapse yet
+- [X] Right pane exists at correct width, collapsible to a thin strip
 - [ ] Bottom strip exists at correct height, collapsible to a thin strip
 - [ ] Primary area fills all remaining space
 - [ ] Window resize handled gracefully, no layout breaks
@@ -206,5 +206,3 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 -All actions are invokable programmatically, not just through UI clicks
 -The protocol adapter exposes a clean internal API that an agent can call
 -Flight history is stored in a structured, queryable format, not just log files
-
-
