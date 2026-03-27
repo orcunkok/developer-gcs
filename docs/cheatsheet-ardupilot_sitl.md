@@ -3,7 +3,9 @@
 Quick reference for launching, flying, and testing ArduPilot SITL via mavproxy.
 
 ---
+add this to bash for ease:
 
+` alias fly=". ~/.profile && sim_vehicle.py -v ArduPlane --console --map --use-dir=$HOME/dev/developer-gcs/sitl/runtime" `
 ## Launch
 
 ```bash
