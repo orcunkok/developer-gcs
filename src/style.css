@@ -1,52 +1,55 @@
 /* ── Developer GCS ── Global Styles ── */
 
 :root {
-  /* ── Semantic Colors ── */
-  --color-nominal: #22c55e;
-  --color-watch: #f59e0b;
-  --color-action: #ef4444;
-  --color-info: #3b82f6;
-  --color-ai: #a855f7;
+    /* ── Semantic Colors ── */
+    --color-nominal: #22c55e;
+    --color-watch: #f59e0b;
+    --color-action: #ef4444;
+    --color-info: #3b82f6;
+    --color-ai: #a855f7;
 
-  /* ── Surface Colors ── */
-  --bg: #ffffff;
-  --bg-surface: #f8f8fa;
-  --border: #e2e2e6;
-  --text: #1a1a1a;
-  --text-secondary: #6b6b76;
+    /* ── Surface Colors ── */
+    --bg: #ffffff;
+    --bg-surface: #f8f8fa;
+    --border: #e2e2e6;
+    --text: #1a1a1a;
+    --text-secondary: #6b6b76;
 
-  /* ── Typography ── */
-  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: ui-monospace, 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    /* ── Typography ── */
+    --font-sans: system-ui, "Segoe UI", Roboto, sans-serif;
+    --font-mono:
+        ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
 
-  /* ── Layout Dimensions ── */
-  --topbar-height: 40px;
-  --left-pane-width: 240px;
-  --right-pane-width: 280px;
-  --bottom-strip-height: 48px;
+    /* ── Layout Dimensions ── */
+    --topbar-height: 40px;
+    --left-pane-width: 240px;
+    --right-pane-width: 280px;
+    --bottom-strip-height: 48px;
+    --min-window-height: 600px;
 }
 
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
-html, body {
-  height: 100%;
-  overflow: hidden;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  color: var(--text);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+html,
+body {
+    height: 100%;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 #app {
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
 }

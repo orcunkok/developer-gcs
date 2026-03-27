@@ -7,11 +7,16 @@ import RightPane from './components/RightPane.vue'
 import BottomStrip from './components/BottomStrip.vue'
 
 const rightPaneOpen = ref(true)
+const bottomStripOpen = ref(true)
 
 function handleKeydown(e) {
   if (e.ctrlKey && e.key === '.') {
     e.preventDefault()
     rightPaneOpen.value = !rightPaneOpen.value
+  }
+  if (e.ctrlKey && e.key === ',') {
+    e.preventDefault()
+    bottomStripOpen.value = !bottomStripOpen.value
   }
 }
 
@@ -20,12 +25,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'right-collapsed': !rightPaneOpen }">
+  <div class="app-shell" :class="{ 'right-collapsed': !rightPaneOpen, 'bottom-collapsed': !bottomStripOpen }">
     <StatusBar />
     <LeftPane />
     <PrimaryDisplay />
     <RightPane v-if="rightPaneOpen" />
-    <BottomStrip />
+    <BottomStrip v-if="bottomStripOpen" />
   </div>
 </template>
 
@@ -49,5 +54,20 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
     "left    primary"
     "bottom  bottom";
   grid-template-columns: var(--left-pane-width) 1fr;
+}
+
+.app-shell.bottom-collapsed {
+  grid-template-areas:
+    "topbar  topbar   topbar"
+    "left    primary  right";
+  grid-template-rows: var(--topbar-height) 1fr;
+}
+
+.app-shell.right-collapsed.bottom-collapsed {
+  grid-template-areas:
+    "topbar  topbar"
+    "left    primary";
+  grid-template-columns: var(--left-pane-width) 1fr;
+  grid-template-rows: var(--topbar-height) 1fr;
 }
 </style>
