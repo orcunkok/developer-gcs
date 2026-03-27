@@ -36,6 +36,11 @@ Four persistent elements: Status Bar (top), Instrument Strip (left -- mini-fly +
 
 Full specifications and task breakdowns: @README.md, @docs/architecture-todo.md, @docs/ui-todo.md. Read these before implementing any workspace or subsystem.
 
+Always use lucide-vue for icons.
+Project uses bun+vite. Always use that.
+Unless told do not use css animations, transitions or anything that will slow something down.
+
+
 ## Gotchas
 
 - This is early stage -- `src/` has scaffolding only. Most systems are not yet built.

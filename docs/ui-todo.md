@@ -9,14 +9,14 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [X] Topbar exists as a single fixed-height bar across the full width
 - [X] Left pane is fixed width, does not scroll, does not collapse yet
 - [X] Right pane exists at correct width, collapsible to a thin strip
-- [ ] Bottom strip exists at correct height, collapsible to a thin strip
-- [ ] Primary area fills all remaining space
-- [ ] Window resize handled gracefully, no layout breaks
-- [ ] Light theme and fonts applied globally
-- [ ] Monospace font loaded and applied to telemetry zones
-- [ ] Color token system in place: green, amber, red, purple, blue semantics defined as CSS variables, not hardcoded anywhere
-- [ ] Navbar can collapse and open
-- [ ] Navbar has clickable elements
+- [X] Bottom strip exists at correct height, collapsible to a thin strip
+- [X] Primary area fills all remaining space
+- [X] Window resize handled gracefully, no layout breaks
+- [X] Light theme and fonts applied globally
+- [X] Monospace font loaded and applied to telemetry zones
+- [X] Color token system in place: green, amber, red, purple, blue semantics defined as CSS variables, not hardcoded anywhere
+- [X] Navbar can collapse and open
+- [X] Navbar has clickable elements
 
 ## Left Pane: Mini-Fly
 

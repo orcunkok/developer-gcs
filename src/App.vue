@@ -2,12 +2,14 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import StatusBar from './components/StatusBar.vue'
 import LeftPane from './components/LeftPane.vue'
+import NavBar from './components/NavBar.vue'
 import PrimaryDisplay from './components/PrimaryDisplay.vue'
 import RightPane from './components/RightPane.vue'
 import BottomStrip from './components/BottomStrip.vue'
 
 const rightPaneOpen = ref(true)
 const bottomStripOpen = ref(true)
+const navbarOpen = ref(false)
 
 function handleKeydown(e) {
   if (e.ctrlKey && e.key === '.') {
@@ -18,6 +20,9 @@ function handleKeydown(e) {
     e.preventDefault()
     bottomStripOpen.value = !bottomStripOpen.value
   }
+  if (e.key === 'Escape' && navbarOpen.value) {
+    navbarOpen.value = false
+  }
 }
 
 onMounted(() => window.addEventListener('keydown', handleKeydown))
@@ -26,8 +31,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 
 <template>
   <div class="app-shell" :class="{ 'right-collapsed': !rightPaneOpen, 'bottom-collapsed': !bottomStripOpen }">
-    <StatusBar />
+    <StatusBar :navbarOpen="navbarOpen" @toggle-navbar="navbarOpen = !navbarOpen" />
     <LeftPane />
+    <NavBar :open="navbarOpen" @close="navbarOpen = false" />
     <PrimaryDisplay />
     <RightPane v-if="rightPaneOpen" />
     <BottomStrip v-if="bottomStripOpen" />
