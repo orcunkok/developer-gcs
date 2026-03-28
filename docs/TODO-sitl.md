@@ -78,8 +78,8 @@ SITL supports failure simulation via `param set` and MAVLink commands. Verify ea
 
 - [x] **GPS dropout:** `param set SIM_GPS1_ENABLE 0` → observe `GPS_RAW_INT` fix_type drops
 - [x] **GPS noise:** `param set SIM_GPS1_NOISE 5` → position jitter visible
-- [ ] **Sensor noise (IMU):** `param set SIM_ACC1_BIAS_X 0.5` → attitude drift visible
-- [ ] Document the param names and reset values in a table at the bottom of this file
+- [x] **Sensor noise (IMU):** `param set SIM_ACC1_BIAS_X 0.5` → attitude drift visible
+- [x] Document the param names and reset values in a table at the bottom of this file
 
 ---
 

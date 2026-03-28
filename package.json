@@ -4,12 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bun run server/index.js & vite",
+    "server": "bun run server/index.js",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "lucide-vue-next": "^1.0.0",
+    "node-mavlink": "^2.3.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.30"
   },

@@ -1,28 +1,31 @@
 # Architecture TODO
-
+---
 ## SITL Environment
 
-- [ ] ArduPilot or PX4 SITL configured and runnable locally
-- [ ] Simulated GPS, IMU, barometer, airspeed sensor outputs
-- [ ] MAVLink stream reachable over UDP from the GCS
-- [ ] Repeatable test mission script (takeoff, cruise waypoints, land)
-- [ ] Simulated failure injection (GPS dropout, sensor noise, link degradation)
-**Not immediate, Nice to have**
-    - [ ] Containerize the SITL for easy deployment
-    - [ ] Simulated camera feed (video file loop acceptable for now)
-    - [ ] SITL documented so anyone can clone and run it in one command
+- [x] ArduPilot or PX4 SITL configured and runnable locally
+- [x] Simulated GPS, IMU, barometer, airspeed sensor outputs
+- [ ] MAVLink stream reachable over sockets(udp/tcp/websockets etc.) from the GCS
+- [x] Repeatable test mission script (takeoff, cruise waypoints, land)
+- [x] Simulated failure injection (GPS dropout, sensor noise, link degradation)
 
+**Not immediate, Nice to have**
+
+- [ ] Containerize the SITL for easy deployment
+- [ ] Simulated camera feed (video file loop acceptable for now)
+- [ ] SITL documented so anyone can clone and run it in one command
+
+---
 ## Protocol Adapter
 
-- [ ] Define the adapter interface contract: what it accepts, what it emits, what it guarantees => input:raw bytes or connection → output: normalized telemetry message objects
-- [ ] Implement MAVLink 2.0 as the reference adapter behind that interface
-- [ ] Connection types: UDP, TCP, serial, WebSocket
-- [ ] Reconnection and dropout behavior handled at the adapter level, not above it
-- [ ] Incoming messages normalized into a common message format before leaving the adapter
-- [ ] Outgoing commands accepted in the common format, translated to protocol-specific wire format by the adapter
-- [ ] Adapter is swappable. A second adapter can be registered without touching anything above it
+- [x] Define the adapter interface contract: what it accepts, what it emits, what it guarantees => input:raw bytes or connection → output: normalized telemetry message objects (see docs/protocol_adapter.md)
+- [x] Implement MAVLink 2.0 as the reference adapter behind that interface
+- [x] Connection types: UDP, TCP, serial, WebSocket
+- [x] Reconnection and dropout behavior handled at the adapter level, not above it
+- [x] Incoming messages normalized into a common message format before leaving the adapter
+- [x] Outgoing commands accepted in the common format, translated to protocol-specific wire format by the adapter
+- [x] Adapter is swappable. A second adapter can be registered without touching anything above it
 - [ ] SITL adapter verified working before any UI work begins
-
+---
 ## State Store
 
 - [ ] State store defined as the single source of truth for all system state
@@ -33,7 +36,7 @@
 - [ ] State is subscribable. Consumers can watch specific keys for changes
 - [ ] Historical state accessible for the last N seconds (needed for sparklines and AI context)
 - [ ] State store has no knowledge of MAVLink or any protocol. It receives normalized data only from the adapter
-
+---
 ## Event Bus
 
 - [ ] Event bus defined as the nervous system. Everything that happens emits an event
@@ -46,7 +49,7 @@
 - [ ] Event history queryable by type, time range, source
 - [ ] The timeline is a subscriber. It renders whatever the bus emits
 - [ ] No silent state changes anywhere. If it happened, it's on the bus
-
+---
 ## Action Registry
 
 - [ ] Action registry defined as the single point of entry for all system actions
@@ -58,7 +61,7 @@
 - [ ] First action set defined and registered: arm, disarm, goto waypoint, set flight mode, set parameter, load mission, cancel mission, inject failure, clear failure
 - [ ] Action can be invoked identically by UI button, keyboard shortcut, console command, command palette, or AI skill (same code path, same validation, same preconditions)
 - [ ] No UI component sends a command message directly. It calls a registered action
-
+---
 ## Skill Interface
 
 - [ ] Skill interface defined before any AI feature is built
@@ -68,7 +71,7 @@
 - [ ] Skill result is always an event on the bus. Skills do not write to state directly
 - [ ] First skill defined as a stub (pre-flight check) to validate the interface works end to end before building real AI features
 - [ ] Adding a new skill requires no changes to state store, event bus, or action registry
-
+---
 ## Internal API
 
 - [ ] Internal API layer wraps state store and action registry behind a clean programmatic interface
@@ -76,7 +79,7 @@
 - [ ] Actions invokable through the API without knowing the registry's internal structure
 - [ ] This is the layer the skill runtime uses
 - [ ] No direct store or registry access from outside this layer
-
+---
 ## Session and Persistence
 
 - [ ] Session starts when a connection is established, ends when it is closed
@@ -87,7 +90,7 @@
 - [ ] Panel layouts persisted as plain text files
 - [ ] Flight summaries auto-generated on session end: duration, events, anomalies, AI decisions
 - [ ] Persistent flight memory layer: patterns queryable across sessions
-
+---
 ## Cross-Cutting Rules
 
 - No layer knows about the layer above it. Adapter does not know about state store, state store does not know about UI
@@ -103,10 +106,9 @@
 - All layout dimensions defined as CSS variables, not hardcoded
 - All color semantics defined as global css variables, referenced everywhere
 - No MAVLink imported outside the protocol adapter
-
+---
 ## AI First Design
 -All state is queryable programmatically, not just visible on screen
 -All actions are invokable programmatically, not just through UI clicks
 -The protocol adapter exposes a clean internal API that an agent can call
 -Flight history is stored in a structured, queryable format, not just log files
-

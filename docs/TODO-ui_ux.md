@@ -2,6 +2,7 @@
 
 Build order: get to a flying, logging, rendering state as fast as possible. Hardware-in-the-loop items first, polish after.
 
+---
 ## Chrome Scaffold
 
 - [X] Application shell renders with correct proportions: topbar, left pane, primary area, right pane, bottom strip
@@ -17,7 +18,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [X] Color token system in place: green, amber, red, purple, blue semantics defined as CSS variables, not hardcoded anywhere
 - [X] Navbar can collapse and open
 - [X] Navbar has clickable elements
-
+---
 ## Left Pane: Mini-Fly
 
 - [ ] Connects to SITL via the protocol adapter
@@ -27,19 +28,20 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Color rules applied: values go amber or red based on thresholds
 - [ ] Double-click target area defined on the mini-fly header (handler stubbed, not implemented yet)
 - [ ] Section is visually separated from mini-think below it
-
+---
 ## Left Pane: Mini-Think
 
 - [ ] Mini-think section renders below mini-fly in the left pane
 - [ ] Confidence bars for: AI decision making, AI voice-to-text, computer vision, route validation, sensor fusion, path planning etc.
 - [ ] Bars hardcoded to test values initially. Live AI data wired in when the autonomy stack provides it
 - [ ] Double-click target area defined on mini-think header (handler stubbed)
-**Not immediate, Nice to have**
-    - [ ] Color rules: green above 80%, amber 60-80%, red below 60%
-    - [ ] Next planned action field: single plain-English line, sourced from autonomy stack output
-    - [ ] Current model name and version displayed
-    - [ ] Model switcher dropdown exists. Selecting a different model while armed shows an inline confirmation bar before executing
 
+**Not immediate, Nice to have**
+  - [ ] Color rules: green above 80%, amber 60-80%, red below 60%
+  - [ ] Next planned action field: single plain-English line, sourced from autonomy stack output
+  - [ ] Current model name and version displayed
+  - [ ] Model switcher dropdown exists. Selecting a different model while armed shows an inline confirmation bar before executing
+---
 ## Bottom Console
 
 - [ ] Console drawer exists as single line, collapsed by default to the bottom strip
@@ -52,7 +54,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Command history navigable with up/down arrow keys
 - [ ] Prevent unset/unhandled commands to be sent
 - [ ] Command palette parser handles: `/arm, /disarm, /goto WP[n], /mode [mode]`
-
+---
 ## Map Tile
 
 - [ ] MapTalks integrated into the primary area as a tile
@@ -61,10 +63,11 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Waypoints rendered as clickable markers
 - [ ] Map does not use any hardcoded tile provider. Tile source is configurable
 - [ ] Map tile can occupy full primary area or share it with other tiles
-**Not immediate, Nice to have**
-    - [ ] Planned route overlaid as a line
-    - [ ] Actual flown path trails behind the aircraft as a separate line
 
+**Not immediate, Nice to have**
+  - [ ] Planned route overlaid as a line
+  - [ ] Actual flown path trails behind the aircraft as a separate line
+---
 ## 3D Attitude Tile
 
 - [ ] Three.js scene renders a simplified aircraft model in a primary area tile
@@ -72,9 +75,10 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Ground reference plane visible at AGL zero
 - [ ] Scene is readable at tile size
 - [ ] 3D tile can coexist with map and camera tiles in primary area
-**Not immediate, Nice to have**
-    - [ ]MiniMap, showing plane, home and north
 
+**Not immediate, Nice to have**
+  - [ ] MiniMap, showing plane, home and north
+---
 ## Right Pane: COMMAND Segment
 
 - [ ] Right pane renders with three segments: COMMAND, DATA, THINK
@@ -84,8 +88,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Responses are plain text, structured, not conversational filler
 - [ ] Command history navigable with up/down
 - [ ] Right pane collapses to a thin strip when not needed, expands on click
-
-
+---
 ## AI Commander
 
 - [ ] Natural language input wired to aircraft commands
@@ -94,7 +97,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Confirmation shows what command will be sent before execution
 - [ ] Refusals are plain and specific: "cannot arm while pre-flight checks are incomplete"
 - [ ] AI Commander is a thin layer over the same adapter as the console. Same commands, different interface
-
+---
 ## AI GCS
 
 - [ ] Natural language queries answered about GCS state and flight data
@@ -104,7 +107,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
     - "What is the AI confidence trend since takeoff" renders trend in right pane DATA
 - [ ] Queries that cannot be answered state why. No hallucination
 - [ ] GCS AI and AI Commander share context but are distinct interfaces
-
+---
 ## Right Pane: DATA Segment (Sparklines)
 
 - [ ] DATA segment renders user-configurable sparklines
@@ -112,8 +115,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Default fields: roll rate, IAS, AI confidence, vertical speed
 - [ ] Tapping any sparkline opens that field full-size in the primary area
 - [ ] Sparklines are time-synchronized to the timeline
-
-
+---
 ## Camera Tile
 
 - [ ] Camera feed renders in a tile in the primary area
@@ -121,7 +123,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Feed displays at native aspect ratio, no stretching
 - [ ] CV overlay toggle exists in the tile header. Off by default, does nothing yet
 - [ ] Camera tile can coexist with map tile in the primary area
-
+---
 ## Double-Click Expand
 
 - [ ] Double-clicking mini-fly header opens full DATA canvas in primary area
@@ -129,8 +131,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Expanded canvas shows a minimize button. Clicking it restores previous primary layout
 - [ ] Keyboard shortcuts `Cmd+1` and `Cmd+2` do the same thing
 - [ ] Shortcuts work even when the mini-tiles are not visible (focus mode)
-
-
+---
 ## Timeline Strip
 
 - [ ] Timeline renders across the full bottom width above the console
@@ -140,7 +141,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] All events sourced from global store
 - [ ] LIVE indicator (colored dot + label) renders at the playhead
 - [ ] L key toggles the raw log drawer from the timeline
-
+---
 ## Tiling System
 
 - [ ] Primary area supports 2-up, 3-up, 4-up tile layouts
@@ -149,7 +150,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Named layouts can be saved and restored
 - [ ] Last used layout restores on launch
 - [ ] Split mode `(Cmd+\)` divides primary into two independently controlled panes
-
+---
 ## CONNECT Workspace
 
 - [ ] System topology diagram renders as a node graph: IMU, GPS, BARO, LIDAR, CAM, CV engine, AHRS, NAV, AUTOPILOT, COMMS, ESCs, SERVOS
@@ -160,7 +161,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Pre-built one-click test workflows: motor spin test, GPS accuracy test, IMU calibration, sensor health check
 - [ ] Failure injection: any node can be artificially failed to test autonomy response
 - [ ] Time River minimized in CONNECT, thin event strip only
-
+---
 ## PLAN Workspace
 
 - [ ] Split pane: mission script editor on the left, map on the right
@@ -170,7 +171,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Diff view: change any parameter, see previous vs new simulated flight paths overlaid on map
 - [ ] Mission scripts are plain text files, git-friendly
 - [ ] Time River minimized in PLAN
-
+---
 ## REPLAY Workspace
 
 - [ ] Flight log selector on first open, lists recorded flights
@@ -183,8 +184,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Flight comparison: load a second flight, overlay as ghost traces on all charts, toggle with one key
 - [ ] Export: selected time window to CSV, JSON, Parquet, or auto-generated PDF flight report
 - [ ] `R` or `Esc` returns to LIVE mode
-
-
+---
 ## Cross-Cutting Rules
 
 - No layer knows about the layer above it. Adapter does not know about state store, state store does not know about UI

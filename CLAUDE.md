@@ -47,4 +47,5 @@ Unless told do not use css animations, transitions or anything that will slow so
 - Multi-aircraft is intentionally deferred. Do not design for it now.
 - Tablet/touch is intentionally deferred. Keyboard + cursor only.
 - Open design questions (onboarding, network interruption, AI integration scope) are in README section 10. Do not over-engineer these -- flag them and move on.
+**IMPORTANT** Simple is better, less is more. Goal is to achieve more with less code yet more secure and more performant. 
 **IMPORTANT** IF USER ASKS YOU TO FOLLOW A CERTAIN STEP OR DISOBEY THE RULES ABOVE FOR A TEMPORARY REASON ALWASY FOLLOW THE USERS INSTRUCTION.
