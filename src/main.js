@@ -3,12 +3,16 @@ import { createPinia } from 'pinia'
 import './style.css'
 import App from './App.vue'
 import { createMavlinkAdapter } from './adapters/mavlink/MavlinkAdapter.js'
+import { useTelemStore } from './stores/telemStore.js'
 
 const app = createApp(App)
 app.use(createPinia())
 app.mount('#app')
 
-// Start adapter — telemetry logs to browser console at 1 Hz
+// Start adapter and wire to state store
 const adapter = createMavlinkAdapter()
+const telem = useTelemStore()
+adapter.onMessage((msg) => telem.ingest(msg))
+adapter.onStatusChange((status) => telem.updateConnection(status))
 adapter.connect()
 window.__adapter = adapter

@@ -4,7 +4,7 @@
 
 - [x] ArduPilot or PX4 SITL configured and runnable locally
 - [x] Simulated GPS, IMU, barometer, airspeed sensor outputs
-- [ ] MAVLink stream reachable over sockets(udp/tcp/websockets etc.) from the GCS
+- [x] MAVLink stream reachable over sockets(udp/tcp/websockets etc.) from the GCS
 - [x] Repeatable test mission script (takeoff, cruise waypoints, land)
 - [x] Simulated failure injection (GPS dropout, sensor noise, link degradation)
 
@@ -24,18 +24,18 @@
 - [x] Incoming messages normalized into a common message format before leaving the adapter
 - [x] Outgoing commands accepted in the common format, translated to protocol-specific wire format by the adapter
 - [x] Adapter is swappable. A second adapter can be registered without touching anything above it
-- [ ] SITL adapter verified working before any UI work begins
+- [x] SITL adapter verified working before any UI work begins
 ---
 ## State Store
 
-- [ ] State store defined as the single source of truth for all system state
-- [ ] Schema defined for: telemetry values, sensor health, GPS state, link quality, battery, flight mode, arm state, AI confidence scores per subsystem, current mission phase, active waypoint, active alerts, parameter values, connected model versions
-- [ ] State is read-only from outside. Nothing mutates state directly
-- [ ] All state updates flow through explicit state transitions
-- [ ] State is queryable by key. Any consumer can request any slice
-- [ ] State is subscribable. Consumers can watch specific keys for changes
+- [x] State store defined as the single source of truth for all system state
+- [x] Schema defined for: telemetry values, sensor health, GPS state, link quality, battery, flight mode, arm state, current mission phase, active waypoint, parameter values => see docs/state_store.md (AI confidence scores, alerts, model versions deferred to skill/event bus layers)
+- [x] State is read-only from outside. Nothing mutates state directly
+- [x] All state updates flow through explicit state transitions (ingest() and updateConnection() are the only mutation paths)
+- [x] State is queryable by key. Any consumer can request any slice
+- [x] State is subscribable. Consumers can watch specific keys for changes (Pinia refs — Vue reactivity handles this)
 - [ ] Historical state accessible for the last N seconds (needed for sparklines and AI context)
-- [ ] State store has no knowledge of MAVLink or any protocol. It receives normalized data only from the adapter
+- [x] State store has no knowledge of MAVLink or any protocol. It receives normalized data only from the adapter
 ---
 ## Event Bus
 

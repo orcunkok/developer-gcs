@@ -1,6 +1,18 @@
+<script setup>
+import { useTelemStore } from '../stores/telemStore.js'
+const t = useTelemStore()
+</script>
+
 <template>
   <aside class="left-pane">
-    <span class="left-pane__label">instrument strip</span>
+    <div class="telem-list">
+      <div>Roll {{ t.roll.toFixed(1) }}°</div>
+      <div>Pitch {{ t.pitch.toFixed(1) }}°</div>
+      <div>Yaw {{ t.yaw.toFixed(1) }}°</div>
+      <div>TAS {{ t.airspeed.toFixed(1) }} m/s</div>
+      <div>Batt {{ (t.remaining * 100).toFixed(0) }}%</div>
+      <div>Link {{ t.connState }}</div>
+    </div>
   </aside>
 </template>
 
@@ -10,16 +22,16 @@
   width: var(--left-pane-width);
   background: #f5fffa;
   border-right: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
+  padding: 8px;
 }
 
-.left-pane__label {
+.telem-list {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
   color: #1a1a1a;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  letter-spacing: 0.04em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 </style>
