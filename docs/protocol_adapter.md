@@ -131,6 +131,7 @@ NormalizedMessage
 | `statusText` | severity, text | string, string |
 | `param` | id, value, type | string, number, string |
 | `linkQuality` | rxErrors, rxDropped, txBuffer | integers |
+| `commandAck` | command, result | string (MavCmd name), string (MavResult name) |
 
 New types can be added by extending the table and adding a `reg()` call in `mappings.js`.
 
@@ -212,6 +213,7 @@ The `mappings.js` file contains all MAVLink ↔ normalized conversions. It is a 
 | MissionCurrent | 42 | `mission` | seq, total |
 | StatusText | 253 | `statusText` | MavSeverity enum → string, null-terminated text cleanup |
 | ParamValue | 22 | `param` | paramId null-terminated cleanup |
+| CommandAck | 77 | `commandAck` | MavCmd enum → command name, MavResult enum → result name |
 
 ### Outbound (Normalized → MAVLink)
 
@@ -265,6 +267,9 @@ The browser adapter logs a 1 Hz telemetry summary to the browser DevTools consol
 [telem] GUIDED ARMED | lat=-35.3632621 lon=149.1652372 alt=10.2m MSL=594.2m hdg=352°
         | gs=0.5m/s as=1.2m/s climb=0.1m/s | R=-0.1° P=-0.1° Y=-7.8°
         | bat=12.6V 99% | gps=6 sat=10
+
+[ack]   DO_SET_MODE → ACCEPTED          (green)
+[ack]   COMPONENT_ARM_DISARM → DENIED   (red)
 ```
 
 For dev testing, the adapter is exposed on `window.__adapter`:
