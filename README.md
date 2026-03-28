@@ -611,10 +611,10 @@ Full molecular task breakdowns live under `docs/`. This is the high-level sequen
 
 ### Architecture
 
-- [ ] SITL up and reachable over UDP
-- [ ] Protocol adapter (MAVLink 2.0, swappable)
-- [ ] State store
-- [ ] Event bus
+- [x] SITL up and reachable over UDP
+- [x] Protocol adapter (MAVLink 2.0, swappable)
+- [x] State store
+- [x] Event log (replaces event bus — Pinia reactivity is the pub/sub, see `docs/event_log_store.md`)
 - [ ] Action registry
 - [ ] Skill interface
 - [ ] Internal API

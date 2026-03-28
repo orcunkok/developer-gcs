@@ -47,5 +47,6 @@ Unless told do not use css animations, transitions or anything that will slow so
 - Multi-aircraft is intentionally deferred. Do not design for it now.
 - Tablet/touch is intentionally deferred. Keyboard + cursor only.
 - Open design questions (onboarding, network interruption, AI integration scope) are in README section 10. Do not over-engineer these -- flag them and move on.
-**IMPORTANT** Simple is better, less is more. Goal is to achieve more with less code yet more secure and more performant. 
+**IMPORTANT** Simple is better, less is more. Goal is to achieve more with less code yet more secure and more performant. We will strictly follow YAGNI, but leave the doors open to further development without needing a reactor.
 **IMPORTANT** IF USER ASKS YOU TO FOLLOW A CERTAIN STEP OR DISOBEY THE RULES ABOVE FOR A TEMPORARY REASON ALWASY FOLLOW THE USERS INSTRUCTION.
+**IMPORTANT** always flag the functions, palcehodlers etc. with a flag `for debugging only` so we can track them and easly remove them before release.

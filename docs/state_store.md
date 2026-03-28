@@ -6,10 +6,13 @@ Single Pinia store (`src/stores/telemStore.js`) — the single source of truth f
 
 ```
 Adapter.onMessage() → telem.ingest(msg) → flat ref updates
+                                        → eventLog.addSample() (telemetry history)
+                                        → eventLog.addEvent()  (state transitions)
 Adapter.onStatusChange() → telem.updateConnection(status)
+                         → eventLog.addEvent() (link state changes)
 ```
 
-Wired in `main.js`. Three lines. Components read refs directly — Vue reactivity handles the rest.
+Wired in `main.js`. Components read refs directly — Vue reactivity handles the rest. Temporal data lives in `eventLogStore` (see `docs/event_log_store.md`).
 
 ## Design Decisions
 
@@ -62,7 +65,7 @@ const telem = useTelemStore()
 
 ## What This Store Does NOT Do
 
-- **No history/ringbuffers** — event bus will handle temporal data
+- **No history/ringbuffers** — eventLogStore handles temporal data (ring buffers for sparklines, append-only log for discrete events)
 - **No computed aggregates** — add when UI needs them
 - **No validation** — adapter already normalizes
 - **No commands** — action registry layer handles outbound

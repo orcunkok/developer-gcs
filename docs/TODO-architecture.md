@@ -34,21 +34,22 @@
 - [x] All state updates flow through explicit state transitions (ingest() and updateConnection() are the only mutation paths)
 - [x] State is queryable by key. Any consumer can request any slice
 - [x] State is subscribable. Consumers can watch specific keys for changes (Pinia refs — Vue reactivity handles this)
-- [ ] Historical state accessible for the last N seconds (needed for sparklines and AI context)
+- [x] Historical state accessible for the last N seconds (needed for sparklines and AI context) — eventLogStore ring buffers
 - [x] State store has no knowledge of MAVLink or any protocol. It receives normalized data only from the adapter
 ---
-## Event Bus
+## Event Log (replaces traditional Event Bus)
 
-- [ ] Event bus defined as the nervous system. Everything that happens emits an event
-- [ ] Event schema defined: type, timestamp, source (hardware / AI / user)
-- [ ] Core event types defined: telemetry updated, sensor health changed, mode changed, arm state changed, command sent, command acknowledged, command failed, alert triggered, alert cleared, AI decision made, confidence changed, link dropped, link restored, session started, session ended, annotation dropped
-- [ ] Any part of the system can publish to the bus
-- [ ] Any part of the system can subscribe to any event type
-- [ ] Events are immutable once emitted
-- [ ] Event history persisted for the session duration and saved (raw material for REPLAY)
-- [ ] Event history queryable by type, time range, source
-- [ ] The timeline is a subscriber. It renders whatever the bus emits
-- [ ] No silent state changes anywhere. If it happened, it's on the bus
+- [x] Event log defined as append-only bounded log. Pinia handles reactive subscriptions
+- [x] Event schema: { t, type, data } for discrete events; { t, v } for telemetry samples
+- [x] Core event types emitted: ARM, DISARM, MODE_CHANGE, LINK_CONNECTED, LINK_DISCONNECTED, LINK_RECONNECTING (more added as action registry / skills land)
+- [x] Any part of the system can call addEvent() to publish
+- [x] Any part of the system can watch events shallowRef or call recentEvents()
+- [x] Events are immutable once pushed (append-only array, no mutation)
+- [x] Event history kept in memory for session (exportSession() for persistence — IndexedDB flush deferred)
+- [x] Event history queryable by time range via recentEvents(ms), samples via recentSamples(channel, n)
+- [ ] The timeline is a subscriber. It renders whatever the log contains
+- [x] No silent state changes. telemStore handlers emit events on every transition
+- [ ] Periodic IndexedDB flush before ring buffers overwrite (needed for full-session REPLAY persistence)
 ---
 ## Action Registry
 
@@ -97,7 +98,7 @@
 - No layer is bypassed for any reason including shipping speed
 - Every action that can be taken in the UI can be taken through the action registry programmatically
 - Every piece of state visible in the UI is readable through the internal API
-- Every event that causes a UI update is on the event bus
+- Every event that causes a UI update is in the event log
 - Protocol-specific code exists only inside protocol adapters
 - No MAVLink imported outside the protocol adapter
 - README kept current with whatever step is complete
