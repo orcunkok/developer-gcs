@@ -14,6 +14,7 @@ Agentic AI ground control station for autonomous aircraft development. The aircr
 - **AI code lives only inside skills and the skill runtime.** Skills declare their context slice (state keys) and tool set (actions). Skills emit events, never write state directly.
 - **All colors, typoghraphy etc. are defined as global CSS variables, not hardcoded** All color semantics defined as global css variables, referenced everywhere
 - **AI First Design** All state is queryable programmatically, not just visible on screen. All actions are invokable programmatically, not just through UI clicks. The protocol adapter exposes a clean internal API that an agent can call. Flight history is stored in a structured, queryable format, not just log files
+- **No standalone type files.** JSDoc typedefs live in the file that owns them. No `types.js` or `types.ts` files.
 
 ## Five Workspaces
 

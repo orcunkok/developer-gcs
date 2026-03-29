@@ -59,14 +59,14 @@ reg(GlobalPositionInt, d => [
   {
     type: 'position',
     payload: {
-      lat: d.lat / 1e7, lon: d.lon / 1e7,
-      altMSL: d.alt / 1000, altAGL: d.relativeAlt / 1000,
-      heading: d.hdg / 100,
+      lat: d.lat, lon: d.lon,
+      altMSL: d.alt, altAGL: d.relativeAlt,
+      heading: d.hdg,
     },
   },
   {
     type: 'velocity',
-    payload: { vx: d.vx / 100, vy: d.vy / 100, vz: d.vz / 100 },
+    payload: { vx: d.vx, vy: d.vy, vz: d.vz },
   },
 ])
 
@@ -82,9 +82,9 @@ reg(SysStatus, d => [
   {
     type: 'battery',
     payload: {
-      voltage: d.voltageBattery / 1000,
-      current: d.currentBattery / 100,
-      remaining: d.batteryRemaining / 100,
+      voltage: d.voltageBattery,
+      current: d.currentBattery,
+      remaining: d.batteryRemaining,
     },
   },
   {
@@ -102,17 +102,17 @@ reg(GpsRawInt, d => [{
   payload: {
     fixType: d.fixType,
     satellites: d.satellitesVisible,
-    hdop: d.eph / 100,
-    vdop: d.epv / 100,
+    hdop: d.eph,
+    vdop: d.epv,
   },
 }])
 
 reg(ScaledImu, d => [{
   type: 'imu',
   payload: {
-    ax: d.xacc / 1000, ay: d.yacc / 1000, az: d.zacc / 1000,
-    gx: d.xgyro / 1000, gy: d.ygyro / 1000, gz: d.zgyro / 1000,
-    mx: d.xmag / 1000, my: d.ymag / 1000, mz: d.zmag / 1000,
+    ax: d.xacc, ay: d.yacc, az: d.zacc,
+    gx: d.xgyro, gy: d.ygyro, gz: d.zgyro,
+    mx: d.xmag, my: d.ymag, mz: d.zmag,
   },
 }])
 
@@ -121,7 +121,7 @@ reg(ScaledPressure, d => [{
   payload: {
     absPress: d.pressAbs,
     diffPress: d.pressDiff,
-    temperature: d.temperature / 100,
+    temperature: d.temperature,
   },
 }])
 
@@ -193,11 +193,15 @@ export function buildCommand({ action, params = {} }) {
       return msg
     }
     case 'setMode': {
+      const modeNum = Object.entries(PLANE_MODES).find(([, v]) => v === params.mode)?.[0]
+      if (modeNum === undefined) {
+        console.warn(`[mavlink] setMode: unknown mode "${params.mode}"`)
+        return null
+      }
       const msg = new CommandLong()
       msg.command = MavCmd.DO_SET_MODE
       msg._param1 = 1 // MAV_MODE_FLAG_CUSTOM
-      const modeNum = Object.entries(PLANE_MODES).find(([, v]) => v === params.mode)?.[0]
-      msg._param2 = modeNum !== undefined ? Number(modeNum) : 0
+      msg._param2 = Number(modeNum)
       return msg
     }
     case 'takeoff': {

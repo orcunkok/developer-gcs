@@ -26,21 +26,23 @@ Wired in `main.js`. Components read refs directly — Vue reactivity handles the
 
 ## State Shape
 
-| Domain | Refs | Source Message |
-|--------|------|---------------|
-| connection | connState, latencyMs, lastSeen | adapter.onStatusChange |
-| attitude | roll, pitch, yaw, rollRate, pitchRate, yawRate | `attitude` |
-| position | lat, lon, altMSL, altAGL, heading | `position` |
-| velocity | vx, vy, vz, groundSpeed, airspeed, climb, throttle | `velocity` |
-| battery | voltage, current, remaining | `battery` |
-| gps | fixType, satellites, hdop, vdop | `gps` |
-| heartbeat | armed, mode, systemStatus | `heartbeat` |
-| mission | missionSeq, missionTotal, currentWaypoint | `mission` |
-| link quality | rxErrors, rxDropped, txBuffer | `linkQuality` |
-| params | params (shallow map) | `param` |
-| status text | statusMessages (last 50, shallow array) | `statusText` |
-| command ack | lastAck (shallow) | `commandAck` |
-| meta | lastTimestamp | all messages |
+Values are stored in raw MAVLink units as received from the adapter. Unit conversion happens in the component or computed layer when needed.
+
+| Domain | Refs | Source Message | Raw units |
+|--------|------|---------------|-----------|
+| connection | connState, latencyMs, lastSeen | adapter.onStatusChange | "connected"\|"disconnected" |
+| attitude | roll, pitch, yaw, rollRate, pitchRate, yawRate | `attitude` | rad, rad/s |
+| position | lat, lon, altMSL, altAGL, heading | `position` | degE7, degE7, mm, mm, cdeg |
+| velocity | vx, vy, vz, groundSpeed, airspeed, climb, throttle | `velocity` | cm/s, m/s |
+| battery | voltage, current, remaining | `battery` | mV, cA, % (0-100) |
+| gps | fixType, satellites, hdop, vdop | `gps` | int, int, cm, cm |
+| heartbeat | armed, mode, systemStatus | `heartbeat` | bool, string, string |
+| mission | missionSeq, missionTotal, currentWaypoint | `mission` | integers |
+| link quality | rxErrors, rxDropped, txBuffer | `linkQuality` | integers |
+| params | params (shallow map) | `param` | raw param values |
+| status text | statusMessages (last 50, shallow array) | `statusText` | — |
+| command ack | lastAck (shallow) | `commandAck` | — |
+| meta | lastTimestamp | all messages | ms epoch |
 
 ## Adding New Telemetry
 

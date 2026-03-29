@@ -115,15 +115,17 @@ NormalizedMessage
 
 ### Message Types
 
-| type | payload keys | units / notes |
+Raw MAVLink values are passed through unchanged. Unit conversion is the state store's responsibility.
+
+| type | payload keys | raw MAVLink units |
 |------|-------------|---------------|
 | `attitude` | roll, pitch, yaw, rollRate, pitchRate, yawRate | radians, rad/s |
-| `position` | lat, lon, altMSL, altAGL, heading | deg, meters, deg |
-| `velocity` | vx, vy, vz, groundSpeed, airspeed, climb, throttle | m/s (vx/vy/vz from GlobalPositionInt, rest from VfrHud) |
-| `battery` | voltage, current, remaining | V, A, 0-1 fraction |
-| `gps` | fixType, satellites, hdop, vdop | integer, float |
-| `imu` | ax, ay, az, gx, gy, gz, mx, my, mz | m/s^2, rad/s, gauss |
-| `pressure` | absPress, diffPress, temperature | hPa, hPa, degC |
+| `position` | lat, lon, altMSL, altAGL, heading | degE7, degE7, mm, mm, cdeg |
+| `velocity` | vx, vy, vz, groundSpeed, airspeed, climb, throttle | cm/s (vx/vy/vz), m/s (rest from VfrHud) |
+| `battery` | voltage, current, remaining | mV, cA, % (0-100, -1=unknown) |
+| `gps` | fixType, satellites, hdop, vdop | integer, integer, cm, cm |
+| `imu` | ax, ay, az, gx, gy, gz, mx, my, mz | mG, mrad/s, mT |
+| `pressure` | absPress, diffPress, temperature | hPa, hPa, cdegC |
 | `rcChannels` | channels[] | normalized 0-1 per channel |
 | `servo` | outputs[] | PWM us |
 | `heartbeat` | armed, mode, systemStatus | boolean, string, string |
@@ -167,13 +169,17 @@ NormalizedCommand
 
 ```
 ConnectionStatus
-  state       : "disconnected" | "connecting" | "connected" | "reconnecting"
+  state       : "disconnected" | "connected"
   lastSeen    : number | null    // timestamp of last received message
   latencyMs   : number | null    // round-trip if measurable
   info        : string | null    // e.g. "udp://127.0.0.1:14550"
 ```
 
-The browser adapter handles WebSocket reconnection with capped exponential backoff (1s → 2s → 4s → 8s → 16s). The bridge server handles UDP lifecycle independently.
+**Connection state is data-driven**, not socket-driven:
+- `connected` — MAVLink packets are actively arriving at the bridge
+- `disconnected` — no packets for 1.5s, or WebSocket to bridge is down
+
+The browser adapter retries the WebSocket every 500ms indefinitely. The bridge server detects vehicle loss via a 1.5s data timeout on the UDP socket.
 
 ---
 
@@ -201,15 +207,15 @@ The `mappings.js` file contains all MAVLink ↔ normalized conversions. It is a 
 | MAVLink Class | MSG_ID | Normalized type(s) | Key conversions |
 |---|---|---|---|
 | Heartbeat | 0 | `heartbeat` | baseMode & SAFETY_ARMED → armed, customMode → ArduPilot mode name |
-| Attitude | 30 | `attitude` | Direct mapping, rollspeed → rollRate etc. |
-| GlobalPositionInt | 33 | `position`, `velocity` | lat/lon ÷ 1e7, alt ÷ 1000, vx/vy/vz ÷ 100 |
-| VfrHud | 74 | `velocity` | groundSpeed, airspeed, climb, throttle |
-| SysStatus | 1 | `battery`, `linkQuality` | voltageBattery ÷ 1000, currentBattery ÷ 100, batteryRemaining ÷ 100 |
-| GpsRawInt | 24 | `gps` | eph/epv ÷ 100 → hdop/vdop |
-| ScaledImu | 26 | `imu` | All fields ÷ 1000 |
-| ScaledPressure | 29 | `pressure` | temperature ÷ 100 |
+| Attitude | 30 | `attitude` | rollspeed → rollRate etc. (raw) |
+| GlobalPositionInt | 33 | `position`, `velocity` | raw (degE7, mm, cm/s) |
+| VfrHud | 74 | `velocity` | raw (m/s) |
+| SysStatus | 1 | `battery`, `linkQuality` | raw (mV, cA, %) |
+| GpsRawInt | 24 | `gps` | raw (cm hdop/vdop) |
+| ScaledImu | 26 | `imu` | raw (mG, mrad/s, mT) |
+| ScaledPressure | 29 | `pressure` | raw (hPa, cdegC) |
 | RcChannels | 65 | `rcChannels` | chan*Raw 1000-2000us → 0-1 normalized |
-| ServoOutputRaw | 36 | `servo` | servo*Raw direct (PWM us) |
+| ServoOutputRaw | 36 | `servo` | raw (PWM us) |
 | MissionCurrent | 42 | `mission` | seq, total |
 | StatusText | 253 | `statusText` | MavSeverity enum → string, null-terminated text cleanup |
 | ParamValue | 22 | `param` | paramId null-terminated cleanup |
@@ -251,9 +257,8 @@ server/
   index.js                  // Bun bridge server — UDP ↔ MAVLink ↔ WS
 
 src/adapters/
-  types.js                  // NormalizedMessage, NormalizedCommand, ConnectionConfig, ConnectionStatus
   mavlink/
-    MavlinkAdapter.js       // Browser-side adapter — WS client, adapter contract
+    MavlinkAdapter.js       // Browser-side adapter — WS client, adapter contract + typedefs
     mappings.js             // MAVLink ↔ normalized conversions (server-side only)
 ```
 

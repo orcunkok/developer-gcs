@@ -4,10 +4,28 @@
  * Connects to the Bun bridge server via WebSocket.
  * Receives normalized JSON messages, forwards commands.
  * The public interface matches the adapter contract in docs/protocol_adapter.md.
+ *
+ * @typedef {'disconnected'|'connected'} ConnectionState
+ *
+ * @typedef {Object} ConnectionStatus
+ * @property {ConnectionState} state
+ * @property {number|null}     lastSeen   - ms since epoch of last received message
+ * @property {number|null}     latencyMs  - round-trip if measurable
+ * @property {string|null}     info       - human-readable detail, e.g. "udp://127.0.0.1:14550"
+ *
+ * @typedef {Object} NormalizedMessage
+ * @property {string} type       - message category (heartbeat, attitude, position, ...)
+ * @property {number} timestamp  - ms since epoch, set by adapter on receipt
+ * @property {string} source     - adapter identifier, e.g. "mavlink-udp"
+ * @property {Object} payload    - type-specific key-value data
+ *
+ * @typedef {Object} NormalizedCommand
+ * @property {string} action  - what to do (arm, disarm, setMode, goto, ...)
+ * @property {Object} params  - action-specific parameters
  */
 
 const BRIDGE_URL = "ws://localhost:3001";
-const RECONNECT_DELAY_MS = [1000, 2000, 4000, 8000, 16000];
+const RECONNECT_MS = 500;
 
 // ── Telemetry console logger (1 Hz) ─────────────────────────────────────────
 
@@ -15,7 +33,7 @@ function createTelemLogger() {
   const latest = {};
   const deg = (r) => ((r * 180) / Math.PI).toFixed(1);
 
-  setInterval(() => {
+  const _interval = setInterval(() => {
     const pos = latest.position;
     const vel = latest.velocity;
     const att = latest.attitude;
@@ -36,7 +54,9 @@ function createTelemLogger() {
     );
   }, 1000);
 
-  return (type, payload) => {
+  function stop() { clearInterval(_interval); }
+
+  function log(type, payload) {
     latest[type] = payload;
     if (type === "commandAck") {
       const ok = payload.result === "ACCEPTED";
@@ -45,18 +65,19 @@ function createTelemLogger() {
         `color: ${ok ? "#22c55e" : "#ef4444"}; font-weight: bold`,
       );
     }
-  };
+  }
+
+  return { log, stop };
 }
 
 export function createMavlinkAdapter() {
   let ws = null;
   let reconnectTimer = null;
-  let attempt = 0;
   let destroyed = false;
 
   const msgListeners = new Set();
   const statusListeners = new Set();
-  const trackTelem = createTelemLogger();
+  const telem = createTelemLogger();
 
   let _status = {
     state: "disconnected",
@@ -66,25 +87,27 @@ export function createMavlinkAdapter() {
   };
 
   function setStatus(patch) {
+    const prev = _status;
     _status = { ..._status, ...patch };
-    for (const cb of statusListeners) cb(_status);
+    if (prev.state !== _status.state || prev.lastSeen !== _status.lastSeen || prev.latencyMs !== _status.latencyMs) {
+      for (const cb of statusListeners) cb(_status);
+    }
   }
 
   function openWs() {
     if (destroyed) return;
-    setStatus({ state: "connecting" });
 
     ws = new WebSocket(BRIDGE_URL);
 
     ws.onopen = () => {
-      attempt = 0;
       setStatus({ state: "connected" });
     };
 
     ws.onclose = () => {
       ws = null;
+      setStatus({ state: "disconnected" });
       if (destroyed) return;
-      scheduleReconnect();
+      reconnectTimer = setTimeout(openWs, RECONNECT_MS);
     };
 
     ws.onerror = () => {};
@@ -95,22 +118,18 @@ export function createMavlinkAdapter() {
 
         if (envelope.type === "message") {
           const msg = envelope.message;
-          _status.lastSeen = msg.timestamp;
-          trackTelem(msg.type, msg.payload);
+          setStatus({ lastSeen: msg.timestamp });
+          telem.log(msg.type, msg.payload);
           for (const cb of msgListeners) cb(msg);
         } else if (envelope.type === "status") {
-          setStatus(envelope.status);
+          // Only accept connected/disconnected from bridge, ignore unknown states
+          const s = envelope.status;
+          if (s.state === "connected" || s.state === "disconnected") {
+            setStatus(s);
+          }
         }
       } catch {}
     };
-  }
-
-  function scheduleReconnect() {
-    setStatus({ state: "reconnecting" });
-    const delay =
-      RECONNECT_DELAY_MS[Math.min(attempt, RECONNECT_DELAY_MS.length - 1)];
-    attempt++;
-    reconnectTimer = setTimeout(openWs, delay);
   }
 
   return {
@@ -126,6 +145,7 @@ export function createMavlinkAdapter() {
     disconnect() {
       destroyed = true;
       clearTimeout(reconnectTimer);
+      telem.stop();
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "disconnect" }));
       }
