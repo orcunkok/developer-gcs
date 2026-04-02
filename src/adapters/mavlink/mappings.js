@@ -12,6 +12,7 @@ import {
   ScaledImu, ScaledPressure, RcChannels, ServoOutputRaw,
   MissionCurrent, VfrHud, BatteryStatus, StatusText, ParamValue,
   CommandAck, CommandLong, ParamSet, ParamRequestRead, MavCmd, MavResult, MavSeverity,
+  HomePosition,
 } from 'mavlink-mappings/dist/lib/common.js'
 
 // ── ArduPilot plane flight modes (customMode field) ──────────────────────────
@@ -164,6 +165,15 @@ reg(CommandAck, d => [{
   payload: {
     command: MavCmd[d.command] || String(d.command),
     result: MavResult[d.result] || String(d.result),
+  },
+}])
+
+reg(HomePosition, d => [{
+  type: 'homePosition',
+  payload: {
+    lat: d.latitude / 1e7,
+    lon: d.longitude / 1e7,
+    alt: d.altitude / 1000,
   },
 }])
 

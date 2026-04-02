@@ -50,6 +50,11 @@ export const useTelemStore = defineStore("telem", () => {
   const mode = ref("");
   const systemStatus = ref("");
 
+  // -- home --
+  const homeLat = ref(null);
+  const homeLon = ref(null);
+  const homeAlt = ref(null);
+
   // -- mission --
   const missionSeq = ref(0);
   const missionTotal = ref(0);
@@ -143,6 +148,11 @@ export const useTelemStore = defineStore("telem", () => {
       if (p.mode !== oldMode && oldMode !== "")
         eventLog.addEvent("MODE_CHANGE", { from: oldMode, to: p.mode }, t);
     },
+    homePosition(p) {
+      homeLat.value = p.lat;
+      homeLon.value = p.lon;
+      homeAlt.value = p.alt;
+    },
     mission(p, t) {
       missionSeq.value = p.seq;
       missionTotal.value = p.total;
@@ -233,6 +243,10 @@ export const useTelemStore = defineStore("telem", () => {
     armed,
     mode,
     systemStatus,
+    // home
+    homeLat,
+    homeLon,
+    homeAlt,
     // mission
     missionSeq,
     missionTotal,

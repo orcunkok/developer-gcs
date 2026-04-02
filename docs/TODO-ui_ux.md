@@ -144,7 +144,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 ---
 ## Tiling System
 
-- [ ] Primary area supports 2-up, 3-up, 4-up tile layouts
+- [ ] Primary area supports 1x1, 2x1, 2x2 tile layouts
 - [ ] Available tiles: Map, Camera, 3D View, DATA, THINK, CONNECT, PLAN, REPLAY
 - [ ] Layout is drag-to-resize between tiles
 - [ ] Named layouts can be saved and restored

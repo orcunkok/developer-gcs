@@ -1,24 +1,19 @@
+<script setup>
+import MapView from '../map/MapView.vue'
+</script>
+
 <template>
   <main class="primary-display">
-    <span class="primary-display__label">primary display</span>
+    <MapView />
   </main>
 </template>
 
 <style scoped>
 .primary-display {
   grid-area: primary;
-  background: #ffdab9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: var(--bg);
   min-width: 0;
   min-height: 0;
-}
-
-.primary-display__label {
-  color: #1a1a1a;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  letter-spacing: 0.04em;
+  overflow: hidden;
 }
 </style>

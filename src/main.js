@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
+import "maptalks/dist/maptalks.css";
 import "./style.css";
 import App from "./App.vue";
 import { createMavlinkAdapter } from "./adapters/mavlink/MavlinkAdapter.js";
