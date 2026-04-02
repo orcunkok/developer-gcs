@@ -204,6 +204,9 @@ export const useTelemStore = defineStore("telem", () => {
     }
   }
 
+  // for debugging only — access telem from browser console: window.telem
+  if (typeof window !== "undefined") window.telem = { homeLat, homeLon, homeAlt, lat, lon, altMSL, armed, mode, params };
+
   return {
     // connection
     connState,

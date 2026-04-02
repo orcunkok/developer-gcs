@@ -1,9 +1,7 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import * as maptalks from "maptalks";
-import { useTelemStore } from "../stores/telemStore.js";
 
-const telem = useTelemStore();
 const container = ref(null);
 let map = null;
 
@@ -22,27 +20,15 @@ onMounted(() => {
         }),
     });
 
-    // if home is already known, center immediately
-    if (telem.homeLat != null && telem.homeLon != null) {
-        map.setCenterAndZoom(
-            new maptalks.Coordinate(telem.homeLon, telem.homeLat),
-            16,
-        );
-    }
+    // for debugging only — static SITL default home (Canberra)
+    const home = new maptalks.Coordinate(149.16523, -35.363261);
+    map.setCenterAndZoom(home, 16);
+    const marker = new maptalks.Marker(home);
+    marker.updateSymbol({ markerOpacity: 1, markerFill: "#bbb" });
+    new maptalks.VectorLayer("home", [marker]).addTo(map);
 });
 
-// center on home when it arrives
-const stopWatch = watch(
-    () => [telem.homeLat, telem.homeLon],
-    ([lat, lon]) => {
-        if (map && lat != null && lon != null) {
-            map.setCenterAndZoom(new maptalks.Coordinate(lon, lat), 16);
-        }
-    },
-);
-
 onUnmounted(() => {
-    stopWatch();
     if (map) {
         map.remove();
         map = null;
