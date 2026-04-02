@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, watch } from "vue";
 import * as maptalks from "maptalks";
 import { useTelemStore } from "../stores/telemStore.js";
+import { action } from "../actions.js";
 
 const telem = useTelemStore();
 const container = ref(null);
@@ -23,10 +24,19 @@ function onRightClick(e) {
     requestAnimationFrame(() => document.addEventListener("pointerdown", closeMenu, { once: true }));
 }
 
-function ctxAction(action) {
+function ctxAction(actionName) {
     const { coord } = ctxMenu.value;
-    // for debugging only
-    console.log(`${action} clicked`, { lat: coord.y, lon: coord.x });
+    if (!coord) {
+        closeMenu();
+        return;
+    }
+
+    if (actionName === "goto") {
+        action.goto({ lat: coord.y, lon: coord.x, alt: telem.altAGL / 1000 });
+    } else {
+        // for debugging only — only `goto` is wired for now.
+        console.warn(`Unhandled context action "${actionName}"`, { lat: coord.y, lon: coord.x });
+    }
     closeMenu();
 }
 let map = null;

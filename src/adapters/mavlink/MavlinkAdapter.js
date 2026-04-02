@@ -24,6 +24,8 @@
  * @property {Object} params  - action-specific parameters
  */
 
+import { registerAction } from "../../actions.js";
+
 const BRIDGE_URL = "ws://localhost:3001";
 const RECONNECT_MS = 500;
 
@@ -132,6 +134,43 @@ export function createMavlinkAdapter() {
     };
   }
 
+  function sendNormalizedCommand(command) {
+    if (ws?.readyState === WebSocket.OPEN) {
+      // for debugging only
+      if (typeof window !== "undefined") {
+        console.log("[mavlink] ws send", { command });
+      }
+      ws.send(JSON.stringify({ type: "command", command }));
+    } else {
+      // for debugging only
+      if (typeof window !== "undefined") {
+        console.warn("[mavlink] ws not open; dropping command", {
+          readyState: ws?.readyState,
+          command,
+        });
+      }
+    }
+  }
+
+  function registerActions() {
+    // Adapters own the set of supported actions.
+    // Registry only needs handlers; this keeps protocol details in the adapter.
+    const sendAction = (action, params = {}) =>
+      sendNormalizedCommand({ action, params });
+
+    registerAction("arm", () => sendAction("arm"));
+    registerAction("disarm", () => sendAction("disarm"));
+    registerAction("setMode", (p = {}) => sendAction("setMode", p));
+    registerAction("goto", (p = {}) => sendAction("goto", p));
+    registerAction("takeoff", (p = {}) => sendAction("takeoff", p));
+    registerAction("land", (p = {}) => sendAction("land", p));
+    registerAction("setParam", (p = {}) => sendAction("setParam", p));
+    registerAction("getParam", (p = {}) => sendAction("getParam", p));
+    registerAction("setMessageRate", (p = {}) => sendAction("setMessageRate", p));
+  }
+
+  registerActions();
+
   return {
     get status() {
       return _status;
@@ -155,9 +194,7 @@ export function createMavlinkAdapter() {
     },
 
     send(command) {
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "command", command }));
-      }
+      sendNormalizedCommand(command);
     },
 
     onMessage(callback) {

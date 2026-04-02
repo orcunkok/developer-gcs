@@ -24,6 +24,7 @@ const DATA_TIMEOUT_MS = 1500; // no data for 1.5s → disconnected
 let port = null;
 let heartbeatInterval = null;
 let dataTimeoutTimer = null;
+let remoteUdpPort = UDP_SEND_PORT;
 const protocol = new MavLinkProtocolV2();
 const wsClients = new Set();
 
@@ -63,6 +64,7 @@ async function startMavlink() {
   if (port) return;
 
   port = new MavEsp8266();
+  remoteUdpPort = UDP_SEND_PORT;
 
   port.on("data", (packet) => {
     const entry = MESSAGE_MAP.get(packet.header.msgid);
@@ -96,6 +98,20 @@ async function startMavlink() {
     );
     setStatus({ info: `udp://${info.ip}:${info.receivePort}` });
 
+    // SITL can emit from a source UDP port different than 14555.
+    // Keep outbound port aligned with latest inbound sender.
+    const udpSocket = port?.socket;
+    if (udpSocket?.on) {
+      udpSocket.on("message", (_buffer, metadata) => {
+        if (!metadata?.port || metadata.port === remoteUdpPort) return;
+        remoteUdpPort = metadata.port;
+        port.sendPort = metadata.port;
+        console.log(
+          `[mavlink] uplink port updated to ${metadata.port} from incoming traffic`,
+        );
+      });
+    }
+
     // Send GCS heartbeat at 1 Hz
     heartbeatInterval = setInterval(() => {
       port.send(buildGcsHeartbeat()).catch(() => {});
@@ -121,15 +137,36 @@ async function stopMavlink() {
 }
 
 function handleCommand(command) {
-  if (!port) return;
+  if (!port) {
+    // for debugging only
+    console.warn("[bridge] command dropped: mavlink port not started", command);
+    return;
+  }
   const msg = buildCommand(command);
   if (msg) {
+    // for debugging only
+    console.log("[bridge] received command", command);
+    if (port?.sendPort !== remoteUdpPort) port.sendPort = remoteUdpPort;
     msg.targetSystem = msg.targetSystem || 1;
     msg.targetComponent = msg.targetComponent || 1;
     port.send(msg).catch((err) => {
       console.error("[mavlink] send error:", err.message);
     });
+  } else {
+    // for debugging only
+    console.warn("[bridge] command dropped: buildCommand returned null", command);
   }
+}
+
+function parseEnvelope(raw) {
+  if (typeof raw === "string") return JSON.parse(raw);
+  if (raw instanceof ArrayBuffer) {
+    return JSON.parse(new TextDecoder().decode(new Uint8Array(raw)));
+  }
+  if (ArrayBuffer.isView(raw)) {
+    return JSON.parse(new TextDecoder().decode(raw));
+  }
+  return null;
 }
 
 // ── WebSocket Server ─────────────────────────────────────────────────────────
@@ -149,7 +186,8 @@ const bun_server = Bun.serve({
     },
     message(ws, raw) {
       try {
-        const envelope = JSON.parse(raw);
+        const envelope = parseEnvelope(raw);
+        if (!envelope) return;
         if (envelope.type === "command") {
           handleCommand(envelope.command);
         } else if (envelope.type === "connect") {
@@ -157,7 +195,10 @@ const bun_server = Bun.serve({
         } else if (envelope.type === "disconnect") {
           stopMavlink();
         }
-      } catch {}
+      } catch (err) {
+        // for debugging only
+        console.warn("[ws] invalid envelope", err?.message || err);
+      }
     },
     close(ws) {
       wsClients.delete(ws);
