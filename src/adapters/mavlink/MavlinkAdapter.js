@@ -42,7 +42,7 @@ function createTelemLogger() {
     const gps = latest.gps;
     if (!pos) return;
 
-    console.log(
+   /*console.log(
       `[telem] %c${hb?.mode || "---"} ${hb?.armed ? "ARMED" : "DISARMED"}` +
         ` %c| lat=${pos.lat.toFixed(7)} lon=${pos.lon.toFixed(7)} alt=${pos.altAGL.toFixed(1)}m MSL=${pos.altMSL.toFixed(1)}m hdg=${pos.heading.toFixed(0)}°` +
         ` | gs=${vel?.groundSpeed?.toFixed(1) ?? "?"}m/s as=${vel?.airspeed?.toFixed(1) ?? "?"}m/s climb=${vel?.climb?.toFixed(1) ?? "?"}m/s` +
@@ -51,7 +51,7 @@ function createTelemLogger() {
         ` | gps=${gps?.fixType ?? "?"} sat=${gps?.satellites ?? "?"}`,
       "color: #22c55e; font-weight: bold",
       "color: inherit",
-    );
+    );*/
   }, 1000);
 
   function stop() { clearInterval(_interval); }
