@@ -21,8 +21,8 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 ---
 ## Left Pane: Mini-Fly
 
-- [ ] Connects to SITL via the protocol adapter
-- [ ] Displays live: roll, pitch, yaw, IAS, vertical speed, altitude MSL, altitude AGL, GPS satellite count, link quality, battery percentage and voltage
+- [x] Connects to SITL via the protocol adapter
+- [x] Displays live: roll, pitch, yaw, IAS, vertical speed, altitude MSL, altitude AGL, GPS satellite count, link quality, battery percentage and voltage
 - [ ] Values update at ~30Hz display rate regardless of incoming message rate
 - [ ] Emergency and warning status creates a visual distinction
 - [ ] Color rules applied: values go amber or red based on thresholds

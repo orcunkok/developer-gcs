@@ -8,7 +8,7 @@ const t = useTelemStore();
         <div class="telem-list">
             <div>Roll {{ t.roll.toFixed(1) }}°</div>
             <div>Pitch {{ t.pitch.toFixed(1) }}°</div>
-            <div>Yaw {{ t.yaw.toFixed(1) }}°</div>
+            <div>Hdg {{ (t.heading / 100).toFixed(0) }}°</div>
             <div>TAS {{ t.airspeed.toFixed(1) }} m/s</div>
             <div>Batt {{ t.remaining.toFixed(0) }}%</div>
             <div>Link {{ t.connState }}</div>

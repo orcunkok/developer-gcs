@@ -10,7 +10,8 @@ const app = createApp(App);
 app.use(createPinia());
 app.mount("#app");
 
-// Start adapter and wire to state store
+// Start adapter and wire to state store, HMR-safe
+if (window.__adapter) window.__adapter.disconnect(); // for debugging only
 const adapter = createMavlinkAdapter();
 const telem = useTelemStore();
 adapter.onMessage((msg) => telem.ingest(msg));
