@@ -5,6 +5,30 @@ import { useTelemStore } from "../stores/telemStore.js";
 
 const telem = useTelemStore();
 const container = ref(null);
+const wrapper = ref(null);
+const ctxMenu = ref({ show: false, x: 0, y: 0, coord: null });
+
+function closeMenu() { ctxMenu.value.show = false; }
+
+function onRightClick(e) {
+    if (!map || !wrapper.value) return;
+    const rect = wrapper.value.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const coord = map.containerPointToCoordinate(new maptalks.Point(x, y));
+    const menuW = 160, menuH = 130;
+    const clampedX = Math.min(x, rect.width - menuW);
+    const clampedY = Math.min(y, rect.height - menuH);
+    ctxMenu.value = { show: true, x: clampedX, y: clampedY, coord };
+    requestAnimationFrame(() => document.addEventListener("pointerdown", closeMenu, { once: true }));
+}
+
+function ctxAction(action) {
+    const { coord } = ctxMenu.value;
+    // for debugging only
+    console.log(`${action} clicked`, { lat: coord.y, lon: coord.x });
+    closeMenu();
+}
 let map = null;
 let planePoly = null;
 let stemMarker = null;
@@ -92,6 +116,7 @@ watch(
 );
 
 onUnmounted(() => {
+    document.removeEventListener("pointerdown", closeMenu);
     if (map) {
         map.remove();
         map = null;
@@ -102,12 +127,59 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div ref="container" class="map-container"></div>
+    <div ref="wrapper" class="map-wrapper" @contextmenu.prevent="onRightClick">
+        <div ref="container" class="map-container"></div>
+        <div
+            v-if="ctxMenu.show"
+            class="ctx-menu"
+            :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
+        >
+            <button @click="ctxAction('goto')">Goto</button>
+            <button @click="ctxAction('add-waypoint')">Add Waypoint</button>
+            <button @click="ctxAction('drop-marker')">Drop Marker</button>
+            <button @click="ctxAction('measure')">Measure Distance</button>
+        </div>
+    </div>
 </template>
 
 <style scoped>
+.map-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
 .map-container {
     width: 100%;
     height: 100%;
+    cursor: crosshair !important;
+}
+
+.map-container :deep(*) {
+    cursor: crosshair !important;
+}
+
+.ctx-menu {
+    position: absolute;
+    z-index: 999;
+    background: var(--bg, #fff);
+    border: 1px solid var(--border, #ccc);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+}
+
+.ctx-menu button {
+    all: unset;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--font-mono, monospace);
+}
+
+.ctx-menu button:hover {
+    background: var(--accent-bg, #f0f0f0);
 }
 </style>

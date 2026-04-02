@@ -9,6 +9,8 @@ const t = useTelemStore();
             <div>Roll {{ t.roll.toFixed(1) }}°</div>
             <div>Pitch {{ t.pitch.toFixed(1) }}°</div>
             <div>Hdg {{ (t.heading / 100).toFixed(0) }}°</div>
+            <div>Alt {{ t.altMSL.toFixed(1) }} m MSL</div>
+            <div>AGL {{ t.altAGL.toFixed(1) }} m</div>
             <div>TAS {{ t.airspeed.toFixed(1) }} m/s</div>
             <div>Batt {{ t.remaining.toFixed(0) }}%</div>
             <div>Link {{ t.connState }}</div>
