@@ -11,12 +11,14 @@ const t = useTelemStore();
                 <button
                     type="button"
                     @click="action.arm()"
+                    :disabled="t.connState !== 'connected'"
                 >
                     ARM
                 </button>
                 <button
                     type="button"
                     @click="action.disarm()"
+                    :disabled="t.connState !== 'connected'"
                 >
                     DISARM
                 </button>

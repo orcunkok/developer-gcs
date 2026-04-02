@@ -122,11 +122,15 @@ async function startMavlink() {
   }
 }
 
+// NOTE: stopMavlink kills the MAVLink connection for ALL connected WS clients.
+// This is intentional for single-user dev, but needs a ref-count or ownership
+// model if we ever support multiple concurrent sessions.
 async function stopMavlink() {
   clearInterval(heartbeatInterval);
   clearTimeout(dataTimeoutTimer);
   heartbeatInterval = null;
   dataTimeoutTimer = null;
+  remoteUdpPort = UDP_SEND_PORT;
   if (port) {
     try {
       await port.close();
@@ -137,24 +141,15 @@ async function stopMavlink() {
 }
 
 function handleCommand(command) {
-  if (!port) {
-    // for debugging only
-    console.warn("[bridge] command dropped: mavlink port not started", command);
-    return;
-  }
+  if (!port) return;
   const msg = buildCommand(command);
   if (msg) {
-    // for debugging only
-    console.log("[bridge] received command", command);
     if (port?.sendPort !== remoteUdpPort) port.sendPort = remoteUdpPort;
     msg.targetSystem = msg.targetSystem || 1;
     msg.targetComponent = msg.targetComponent || 1;
     port.send(msg).catch((err) => {
       console.error("[mavlink] send error:", err.message);
     });
-  } else {
-    // for debugging only
-    console.warn("[bridge] command dropped: buildCommand returned null", command);
   }
 }
 
@@ -171,7 +166,7 @@ function parseEnvelope(raw) {
 
 // ── WebSocket Server ─────────────────────────────────────────────────────────
 
-const bun_server = Bun.serve({
+Bun.serve({
   port: WS_PORT,
   fetch(req, server) {
     if (server.upgrade(req)) return;

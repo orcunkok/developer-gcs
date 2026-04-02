@@ -29,47 +29,13 @@ import { registerAction } from "../../actions.js";
 const BRIDGE_URL = "ws://localhost:3001";
 const RECONNECT_MS = 500;
 
-// ── Telemetry console logger (1 Hz) ─────────────────────────────────────────
-
-function createTelemLogger() {
-  const latest = {};
-  const deg = (r) => ((r * 180) / Math.PI).toFixed(1);
-
-  const _interval = setInterval(() => {
-    const pos = latest.position;
-    const vel = latest.velocity;
-    const att = latest.attitude;
-    const hb = latest.heartbeat;
-    const bat = latest.battery;
-    const gps = latest.gps;
-    if (!pos) return;
-
-   /*console.log(
-      `[telem] %c${hb?.mode || "---"} ${hb?.armed ? "ARMED" : "DISARMED"}` +
-        ` %c| lat=${pos.lat.toFixed(7)} lon=${pos.lon.toFixed(7)} alt=${pos.altAGL.toFixed(1)}m MSL=${pos.altMSL.toFixed(1)}m hdg=${pos.heading.toFixed(0)}°` +
-        ` | gs=${vel?.groundSpeed?.toFixed(1) ?? "?"}m/s as=${vel?.airspeed?.toFixed(1) ?? "?"}m/s climb=${vel?.climb?.toFixed(1) ?? "?"}m/s` +
-        ` | R=${att ? deg(att.roll) : "?"}° P=${att ? deg(att.pitch) : "?"}° Y=${att ? deg(att.yaw) : "?"}°` +
-        ` | bat=${bat?.voltage?.toFixed(1) ?? "?"}V ${bat?.remaining != null ? (bat.remaining * 100).toFixed(0) + "%" : "?"}` +
-        ` | gps=${gps?.fixType ?? "?"} sat=${gps?.satellites ?? "?"}`,
-      "color: #22c55e; font-weight: bold",
-      "color: inherit",
-    );*/
-  }, 1000);
-
-  function stop() { clearInterval(_interval); }
-
-  function log(type, payload) {
-    latest[type] = payload;
-    if (type === "commandAck") {
-      const ok = payload.result === "ACCEPTED";
-      console.log(
-        `[ack] %c${payload.command} → ${payload.result}`,
-        `color: ${ok ? "#22c55e" : "#ef4444"}; font-weight: bold`,
-      );
-    }
-  }
-
-  return { log, stop };
+function logAck(type, payload) {
+  if (type !== "commandAck") return;
+  const ok = payload.result === "ACCEPTED";
+  console.log(
+    `[ack] %c${payload.command} → ${payload.result}`,
+    `color: ${ok ? "#22c55e" : "#ef4444"}; font-weight: bold`,
+  );
 }
 
 export function createMavlinkAdapter() {
@@ -79,7 +45,6 @@ export function createMavlinkAdapter() {
 
   const msgListeners = new Set();
   const statusListeners = new Set();
-  const telem = createTelemLogger();
 
   let _status = {
     state: "disconnected",
@@ -121,7 +86,7 @@ export function createMavlinkAdapter() {
         if (envelope.type === "message") {
           const msg = envelope.message;
           setStatus({ lastSeen: msg.timestamp });
-          telem.log(msg.type, msg.payload);
+          logAck(msg.type, msg.payload);
           for (const cb of msgListeners) cb(msg);
         } else if (envelope.type === "status") {
           // Only accept connected/disconnected from bridge, ignore unknown states
@@ -135,48 +100,31 @@ export function createMavlinkAdapter() {
   }
 
   function sendNormalizedCommand(command) {
-    if (ws?.readyState === WebSocket.OPEN) {
-      // for debugging only
-      if (typeof window !== "undefined") {
-        console.log("[mavlink] ws send", { command });
-      }
-      ws.send(JSON.stringify({ type: "command", command }));
-    } else {
-      // for debugging only
-      if (typeof window !== "undefined") {
-        console.warn("[mavlink] ws not open; dropping command", {
-          readyState: ws?.readyState,
-          command,
-        });
-      }
+    if (ws?.readyState !== WebSocket.OPEN) {
+      throw new Error("Adapter is not connected");
     }
+    ws.send(JSON.stringify({ type: "command", command }));
   }
 
-  function registerActions() {
-    // Adapters own the set of supported actions.
-    // Registry only needs handlers; this keeps protocol details in the adapter.
-    const sendAction = (action, params = {}) =>
-      sendNormalizedCommand({ action, params });
+  // Adapters own the set of supported actions.
+  // Registry only needs handlers; this keeps protocol details in the adapter.
+  const SUPPORTED_ACTIONS = [
+    "arm", "disarm", "setMode", "goto", "takeoff",
+    "land", "setParam", "getParam", "setMessageRate",
+  ];
 
-    registerAction("arm", () => sendAction("arm"));
-    registerAction("disarm", () => sendAction("disarm"));
-    registerAction("setMode", (p = {}) => sendAction("setMode", p));
-    registerAction("goto", (p = {}) => sendAction("goto", p));
-    registerAction("takeoff", (p = {}) => sendAction("takeoff", p));
-    registerAction("land", (p = {}) => sendAction("land", p));
-    registerAction("setParam", (p = {}) => sendAction("setParam", p));
-    registerAction("getParam", (p = {}) => sendAction("getParam", p));
-    registerAction("setMessageRate", (p = {}) => sendAction("setMessageRate", p));
+  for (const name of SUPPORTED_ACTIONS) {
+    registerAction(name, (params = {}) =>
+      sendNormalizedCommand({ action: name, params }),
+    );
   }
-
-  registerActions();
 
   return {
     get status() {
       return _status;
     },
 
-    connect(config) {
+    connect() {
       destroyed = false;
       openWs();
     },
@@ -184,7 +132,6 @@ export function createMavlinkAdapter() {
     disconnect() {
       destroyed = true;
       clearTimeout(reconnectTimer);
-      telem.stop();
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "disconnect" }));
       }

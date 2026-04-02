@@ -2,6 +2,10 @@ import { useEventLogStore } from "./stores/eventLogStore.js";
 
 // Action registry: single entry point for outbound commands.
 // Adapters register handlers; UI/AI/console invokes via `action.<name>(params)`.
+//
+// Result contract — invokeAction() never leaves the caller blind:
+//   { ok: true, value?: any }
+//   { ok: false, code: "UNKNOWN_ACTION" | "HANDLER_ERROR", error: string }
 
 const REGISTRY_KEY = "__developerGcsActionRegistry";
 const registry =
@@ -19,6 +23,14 @@ export function registerAction(name, handler) {
   handlers.set(name, handler);
 }
 
+export function listActions() {
+  return Array.from(handlers.keys());
+}
+
+export function hasAction(name) {
+  return handlers.has(name);
+}
+
 function getEventLogStoreSafe() {
   // Important: do not touch Pinia at import time.
   try {
@@ -32,7 +44,6 @@ export function invokeAction(name, params = {}) {
   const handler = handlers.get(name);
   if (!handler) {
     const eventLog = getEventLogStoreSafe();
-    const knownActions = Array.from(handlers.keys());
     if (eventLog) {
       eventLog.addEvent("COMMAND_FAILED", {
         action: name,
@@ -40,30 +51,25 @@ export function invokeAction(name, params = {}) {
         error: "unknown action",
       });
     }
-    // for debugging only
-    if (typeof window !== "undefined") {
-      console.error(`[action] unknown action "${name}"`, { knownActions });
-    }
-    return;
+    return { ok: false, code: "UNKNOWN_ACTION", error: `unknown action: ${name}` };
   }
 
-  // Registry logs every command invocation.
   const eventLog = getEventLogStoreSafe();
   if (eventLog) eventLog.addEvent("COMMAND_SENT", { action: name, params });
 
   try {
-    // for debugging only
-    if (typeof window !== "undefined") console.log(`[action] invoking "${name}"`, { params });
-    return handler(params);
+    const value = handler(params);
+    return { ok: true, value };
   } catch (err) {
+    const error = err?.message ? String(err.message) : String(err);
     if (eventLog) {
       eventLog.addEvent("COMMAND_FAILED", {
         action: name,
         params,
-        error: err?.message ? String(err.message) : String(err),
+        error,
       });
     }
-    throw err;
+    return { ok: false, code: "HANDLER_ERROR", error };
   }
 }
 
@@ -78,10 +84,4 @@ export const action = new Proxy(
     },
   },
 );
-
-// for debugging only — inspect registered actions: `window.__actions`
-if (typeof window !== "undefined") {
-  window.__actions = action;
-  window.__actionNames = () => Array.from(handlers.keys());
-}
 
