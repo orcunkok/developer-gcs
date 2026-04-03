@@ -106,11 +106,80 @@ export function createMavlinkAdapter() {
     ws.send(JSON.stringify({ type: "command", command }));
   }
 
-  // Adapters own the set of supported actions.
-  // Registry only needs handlers; this keeps protocol details in the adapter.
+  // ── Mission protocol ─────────────────────────────────────────────────
+
+  function cmd(action, params = {}) { sendNormalizedCommand({ action, params }); }
+
+  function waitFor(type, match, ms = 3000) {
+    return new Promise((resolve, reject) => {
+      let unsub;
+      const timer = setTimeout(() => { unsub(); reject(new Error(`timeout waiting for ${type}`)); }, ms);
+      unsub = subscribe((msg) => {
+        if (msg.type === type && (!match || match(msg.payload))) {
+          clearTimeout(timer); unsub(); resolve(msg.payload);
+        }
+      });
+    });
+  }
+
+  function subscribe(cb) { msgListeners.add(cb); return () => msgListeners.delete(cb); }
+
+  async function fetchMission() {
+    cmd("requestMissionList");
+    const { count } = await waitFor("missionCount");
+    if (count === 0) return [];
+
+    const items = [];
+    for (let seq = 0; seq < count; seq++) {
+      let item = null;
+      for (let try_ = 0; try_ < 3 && !item; try_++) {
+        cmd("requestMissionItem", { seq });
+        try { item = await waitFor("missionItemInt", p => p.seq === seq); }
+        catch { /* retry */ }
+      }
+      if (!item) throw new Error(`failed to download item ${seq}`);
+      items.push({
+        seq: item.seq, frame: item.frame, command: item.command,
+        lat: item.x / 1e7, lon: item.y / 1e7, alt: item.z,
+        param1: item.param1, param2: item.param2, param3: item.param3, param4: item.param4,
+        autocontinue: item.autocontinue,
+      });
+    }
+    cmd("sendMissionAck", { result: 0 });
+    return items;
+  }
+
+  async function uploadMission(items) {
+    cmd("sendMissionCount", { count: items.length });
+    for (let i = 0; i < items.length; i++) {
+      const { seq } = await waitFor("missionRequestInt");
+      const it = items[seq];
+      if (!it) throw new Error(`autopilot requested unknown seq ${seq}`);
+      cmd("sendMissionItem", {
+        seq, frame: it.frame, command: it.command,
+        current: seq === 0 ? 1 : 0, autocontinue: it.autocontinue ?? 1,
+        param1: it.param1 || 0, param2: it.param2 || 0,
+        param3: it.param3 || 0, param4: it.param4 || 0,
+        x: Math.round(it.lat * 1e7), y: Math.round(it.lon * 1e7), z: it.alt || 0,
+      });
+    }
+    const ack = await waitFor("missionAck");
+    return ack.result === "ACCEPTED" ? { ok: true } : { ok: false, error: ack.result };
+  }
+
+  async function clearMission() {
+    cmd("clearMission");
+    const ack = await waitFor("missionAck");
+    return ack.result === "ACCEPTED" ? { ok: true } : { ok: false, error: ack.result };
+  }
+
+  // ── Action registration ────────────────────────────────────────────────
+
   const SUPPORTED_ACTIONS = [
     "arm", "disarm", "setMode", "goto", "takeoff",
     "land", "setParam", "getParam", "setMessageRate",
+    "requestMissionList", "requestMissionItem", "sendMissionCount",
+    "sendMissionItem", "sendMissionAck", "clearMission",
   ];
 
   for (const name of SUPPORTED_ACTIONS) {
@@ -153,5 +222,9 @@ export function createMavlinkAdapter() {
       statusListeners.add(callback);
       return () => statusListeners.delete(callback);
     },
+
+    fetchMission,
+    uploadMission,
+    clearMission,
   };
 }

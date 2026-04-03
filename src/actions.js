@@ -51,7 +51,11 @@ export function invokeAction(name, params = {}) {
         error: "unknown action",
       });
     }
-    return { ok: false, code: "UNKNOWN_ACTION", error: `unknown action: ${name}` };
+    return {
+      ok: false,
+      code: "UNKNOWN_ACTION",
+      error: `unknown action: ${name}`,
+    };
   }
 
   const eventLog = getEventLogStoreSafe();
@@ -84,4 +88,3 @@ export const action = new Proxy(
     },
   },
 );
-

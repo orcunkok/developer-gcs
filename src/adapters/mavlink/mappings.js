@@ -10,8 +10,11 @@ import {
 import {
   Attitude, GlobalPositionInt, SysStatus, GpsRawInt,
   ScaledImu, ScaledPressure, RcChannels, ServoOutputRaw,
-  MissionCurrent, VfrHud, BatteryStatus, StatusText, ParamValue,
-  CommandAck, CommandLong, ParamSet, ParamRequestRead, MavCmd, MavResult, MavSeverity,
+  MissionCurrent, MissionCount, MissionItemInt, MissionRequestInt,
+  MissionAck, MissionItemReached, MissionRequestList, MissionClearAll,
+  VfrHud, BatteryStatus, StatusText, ParamValue,
+  CommandAck, CommandLong, ParamSet, ParamRequestRead,
+  MavCmd, MavResult, MavSeverity, MavMissionResult, MavMissionType, MavFrame,
   HomePosition,
 } from 'mavlink-mappings/dist/lib/common.js'
 
@@ -152,6 +155,39 @@ reg(MissionCurrent, d => [{
   },
 }])
 
+reg(MissionCount, d => [{
+  type: 'missionCount',
+  payload: { count: d.count, missionType: d.missionType },
+}])
+
+reg(MissionItemInt, d => [{
+  type: 'missionItemInt',
+  payload: {
+    seq: d.seq, frame: d.frame, command: d.command,
+    current: d.current, autocontinue: d.autocontinue,
+    param1: d.param1, param2: d.param2, param3: d.param3, param4: d.param4,
+    x: d.x, y: d.y, z: d.z, missionType: d.missionType,
+  },
+}])
+
+reg(MissionAck, d => [{
+  type: 'missionAck',
+  payload: {
+    result: MavMissionResult[d.type] || String(d.type),
+    missionType: d.missionType,
+  },
+}])
+
+reg(MissionItemReached, d => [{
+  type: 'missionItemReached',
+  payload: { seq: d.seq },
+}])
+
+reg(MissionRequestInt, d => [{
+  type: 'missionRequestInt',
+  payload: { seq: d.seq, missionType: d.missionType },
+}])
+
 reg(StatusText, d => [{
   type: 'statusText',
   payload: {
@@ -255,6 +291,51 @@ export function buildCommand({ action, params = {} }) {
       msg.command = MavCmd.SET_MESSAGE_INTERVAL
       msg._param1 = params.messageId || 0
       msg._param2 = params.rateHz ? 1e6 / params.rateHz : 0
+      return msg
+    }
+    case 'requestMissionList': {
+      const msg = new MissionRequestList()
+      msg.missionType = params.missionType ?? MavMissionType.MISSION
+      return msg
+    }
+    case 'requestMissionItem': {
+      const msg = new MissionRequestInt()
+      msg.seq = params.seq || 0
+      msg.missionType = params.missionType ?? MavMissionType.MISSION
+      return msg
+    }
+    case 'sendMissionCount': {
+      const msg = new MissionCount()
+      msg.count = params.count || 0
+      msg.missionType = params.missionType ?? MavMissionType.MISSION
+      return msg
+    }
+    case 'sendMissionItem': {
+      const msg = new MissionItemInt()
+      msg.seq = params.seq || 0
+      msg.frame = params.frame ?? MavFrame.GLOBAL_RELATIVE_ALT_INT
+      msg.command = params.command ?? MavCmd.NAV_WAYPOINT
+      msg.current = params.current || 0
+      msg.autocontinue = params.autocontinue ?? 1
+      msg.param1 = params.param1 || 0
+      msg.param2 = params.param2 || 0
+      msg.param3 = params.param3 || 0
+      msg.param4 = params.param4 || 0
+      msg.x = params.x || 0
+      msg.y = params.y || 0
+      msg.z = params.z || 0
+      msg.missionType = params.missionType ?? MavMissionType.MISSION
+      return msg
+    }
+    case 'sendMissionAck': {
+      const msg = new MissionAck()
+      msg.type = params.result ?? MavMissionResult.ACCEPTED
+      msg.missionType = params.missionType ?? MavMissionType.MISSION
+      return msg
+    }
+    case 'clearMission': {
+      const msg = new MissionClearAll()
+      msg.missionType = params.missionType ?? MavMissionType.MISSION
       return msg
     }
     default:
