@@ -1,8 +1,7 @@
 # Waypoint Management
 
-**Status:** Implemented (MVP — download, upload, clear, reactive sync)
 
-**Date:** April 2026
+**Last Change** April 2nd, 2026
 
 ---
 

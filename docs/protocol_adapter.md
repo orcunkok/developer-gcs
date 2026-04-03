@@ -1,5 +1,6 @@
 # Protocol Adapter
 
+**Last Change:** March 28, 2026
 **Status:** Implemented (MVP)
 
 **Date:** March 2026

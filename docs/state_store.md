@@ -1,5 +1,7 @@
 # State Store
 
+**Last Change:** March 28, 2026
+
 Single Pinia store (`src/stores/telemStore.js`) — the single source of truth for all vehicle telemetry and connection state.
 
 ## Architecture

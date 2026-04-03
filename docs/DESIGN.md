@@ -1,5 +1,7 @@
 # Design Philosophy
 
+**Last Change:** March 28, 2026
+
 **Warm Functionalism.**
 
 Developer GCS follows a design language we call Warm Functionalism: **the belief that precision tools do not have to feel cold, and that warmth does not require ornament**.

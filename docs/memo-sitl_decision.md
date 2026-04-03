@@ -1,6 +1,6 @@
 # SITL Simulation Stack Decision Memo
 
-**Date:** March 2026
+**Last Change:** March 27, 2026
 **Status:** Decision made — JSBSim + ArduPilot SITL for MVP
 
 ---

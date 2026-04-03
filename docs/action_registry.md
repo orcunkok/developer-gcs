@@ -1,5 +1,7 @@
 # Action Registry
 
+**Last Change:** April 02, 2026
+
 Single entry point for all commands in the GCS. UI buttons, context menus, console, keyboard shortcuts, and AI skills all go through the same registry.
 
 ## Usage

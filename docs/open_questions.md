@@ -1,5 +1,7 @@
 # Open Questions
 
+**Last Change:** April 02, 2026
+
 Unresolved design decisions. Do not over-engineer these — flag and move on.
 
 ---

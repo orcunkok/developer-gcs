@@ -1,5 +1,7 @@
 # ArduPilot SITL Cheatsheet
 
+**Last Change:** April 02, 2026
+
 Quick reference for launching, flying, and testing ArduPilot SITL via mavproxy.
 
 ---

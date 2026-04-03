@@ -1,5 +1,7 @@
 # Event Log Store
 
+**Last Change:** March 27, 2026
+
 Replaces a traditional event bus. Pinia reactivity already handles pub/sub — components watch refs, Vue triggers re-renders. What was missing: **bounded temporal history** for timeline, sparklines, replay, and AI context.
 
 Single Pinia store (`src/stores/eventLogStore.js`).
