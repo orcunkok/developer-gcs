@@ -1,5 +1,9 @@
 <script setup>
 import { Menu } from 'lucide-vue-next'
+import { useTelemStore } from '../stores/telemStore.js'
+import { action } from '../actions.js'
+
+const t = useTelemStore()
 
 defineProps({
   navbarOpen: Boolean
@@ -13,7 +17,27 @@ defineEmits(['toggle-navbar'])
     <button class="status-bar__menu-btn" @click="$emit('toggle-navbar')" :class="{ active: navbarOpen }">
       <Menu :size="16" />
     </button>
-    <span class="status-bar__label">status bar</span>
+    <div class="status-bar__indicators">
+      <div>
+        <button
+            type="button"
+            @click="action.arm()"
+            :disabled="t.connState !== 'connected'"
+        >
+            ARM
+        </button>
+        <button
+            type="button"
+            @click="action.disarm()"
+            :disabled="t.connState !== 'connected'"
+        >
+            DISARM
+        </button>
+      </div>
+      <div>Batt {{ t.remaining.toFixed(0) }}%</div>
+      <div>GPS fix {{ t.fixType }} sats {{ t.satellites }}</div>
+      <div>Link {{ t.connState }}</div>
+    </div>
   </header>
 </template>
 
@@ -55,10 +79,12 @@ defineEmits(['toggle-navbar'])
   background: rgba(0, 0, 0, 0.12);
 }
 
-.status-bar__label {
+.status-bar__indicators {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
   color: #1a1a1a;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  letter-spacing: 0.04em;
 }
 </style>

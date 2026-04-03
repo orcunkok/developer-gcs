@@ -171,9 +171,9 @@ reg(CommandAck, d => [{
 reg(HomePosition, d => [{
   type: 'homePosition',
   payload: {
-    lat: d.latitude / 1e7,
-    lon: d.longitude / 1e7,
-    alt: d.altitude / 1000,
+    lat: d.latitude,
+    lon: d.longitude,
+    alt: d.altitude,
   },
 }])
 

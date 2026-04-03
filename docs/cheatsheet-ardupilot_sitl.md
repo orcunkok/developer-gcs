@@ -93,7 +93,7 @@ wp load path/to/mission.waypoints  # load a mission file
 wp save path/to/mission.waypoints  # save current mission to file
 wp editor                          # interactive waypoint editor
 wp clear                           # clear all waypoints
-wp 1                               # go to wp index 1
+wp set 1                               # go to wp index 1
 # Fly to a specific waypoint index
 guided <lat> <lon> <alt>           # fly to coordinates in GUIDED mode
 ```

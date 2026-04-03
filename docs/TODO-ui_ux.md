@@ -57,8 +57,8 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 ---
 ## Map Tile
 
-- [ ] MapTalks integrated into the primary area as a tile
-- [ ] Aircraft position marker renders and moves in real time from SITL data
+- [x] MapTalks integrated into the primary area as a tile
+- [x] Aircraft position marker renders and moves in real time from SITL data
 - [ ] Right-click context menu on map: Goto, Add Waypoint, Drop Marker, Measure Distance
 - [ ] Waypoints rendered as clickable markers
 - [ ] Map does not use any hardcoded tile provider. Tile source is configurable
