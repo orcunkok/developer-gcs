@@ -262,11 +262,23 @@ export function buildCommand({ action, params = {} }) {
       return msg
     }
     case 'goto': {
-      const msg = new CommandLong()
-      msg.command = MavCmd.DO_REPOSITION
-      msg._param5 = params.lat || 0
-      msg._param6 = params.lon || 0
-      msg._param7 = params.alt || 0
+      // ArduPlane guided goto: MISSION_ITEM_INT with current=2 (guided waypoint)
+      const msg = new MissionItemInt()
+      msg.targetSystem = 1
+      msg.targetComponent = 1
+      msg.seq = 0
+      msg.frame = MavFrame.GLOBAL_RELATIVE_ALT_INT
+      msg.command = MavCmd.NAV_WAYPOINT
+      msg.current = 2  // 2 = guided-mode waypoint flag for ArduPlane
+      msg.autocontinue = 0
+      msg.param1 = 0
+      msg.param2 = 0
+      msg.param3 = 0
+      msg.param4 = 0
+      msg.x = Math.round((params.lat || 0) * 1e7)
+      msg.y = Math.round((params.lon || 0) * 1e7)
+      msg.z = params.alt || 0
+      msg.missionType = MavMissionType.MISSION
       return msg
     }
     case 'setParam': {

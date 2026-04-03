@@ -4,6 +4,7 @@ import "maptalks/dist/maptalks.css";
 import "./style.css";
 import App from "./App.vue";
 import { createMavlinkAdapter } from "./adapters/mavlink/MavlinkAdapter.js";
+import { action } from "./actions.js";
 import { useTelemStore } from "./stores/telemStore.js";
 import { useMissionStore } from "./stores/missionStore.js";
 import { useEventLogStore } from "./stores/eventLogStore.js";
@@ -23,3 +24,4 @@ adapter.onStatusChange((status) => telem.updateConnection(status));
 adapter.connect();
 window.__adapter = adapter; // for debugging only
 window.__eventLog = useEventLogStore(); // for debugging only
+window.action = action; // for debugging only

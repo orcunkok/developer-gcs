@@ -30,12 +30,19 @@ const BRIDGE_URL = "ws://localhost:3001";
 const RECONNECT_MS = 500;
 
 function logAck(type, payload) {
-  if (type !== "commandAck") return;
-  const ok = payload.result === "ACCEPTED";
-  console.log(
-    `[ack] %c${payload.command} → ${payload.result}`,
-    `color: ${ok ? "#22c55e" : "#ef4444"}; font-weight: bold`,
-  );
+  if (type === "commandAck") {
+    const ok = payload.result === "ACCEPTED";
+    console.log(
+      `[ack] %c${payload.command} → ${payload.result}`,
+      `color: ${ok ? "#22c55e" : "#ef4444"}; font-weight: bold`,
+    );
+  } else if (type === "missionAck") {
+    const ok = payload.result === "ACCEPTED";
+    console.log(
+      `[mission ack] %c${payload.result}`,
+      `color: ${ok ? "#22c55e" : "#ef4444"}; font-weight: bold`,
+    );
+  }
 }
 
 export function createMavlinkAdapter() {

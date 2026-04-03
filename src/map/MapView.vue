@@ -3,13 +3,16 @@ import { ref, onMounted, onUnmounted, watch } from "vue";
 import * as maptalks from "maptalks";
 import { useTelemStore } from "../stores/telemStore.js";
 import { action } from "../actions.js";
+import { useMapActions } from "./mapActions.js";
 
 const telem = useTelemStore();
 const container = ref(null);
 const wrapper = ref(null);
 const ctxMenu = ref({ show: false, x: 0, y: 0, coord: null });
 
-function closeMenu() { ctxMenu.value.show = false; }
+function closeMenu() {
+    ctxMenu.value.show = false;
+}
 
 function onRightClick(e) {
     if (!map || !wrapper.value) return;
@@ -17,11 +20,14 @@ function onRightClick(e) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const coord = map.containerPointToCoordinate(new maptalks.Point(x, y));
-    const menuW = 160, menuH = 130;
+    const menuW = 160,
+        menuH = 130;
     const clampedX = Math.min(x, rect.width - menuW);
     const clampedY = Math.min(y, rect.height - menuH);
     ctxMenu.value = { show: true, x: clampedX, y: clampedY, coord };
-    requestAnimationFrame(() => document.addEventListener("pointerdown", closeMenu, { once: true }));
+    requestAnimationFrame(() =>
+        document.addEventListener("pointerdown", closeMenu, { once: true }),
+    );
 }
 
 function ctxAction(actionName) {
@@ -33,15 +39,21 @@ function ctxAction(actionName) {
 
     if (actionName === "goto") {
         action.goto({ lat: coord.y, lon: coord.x, alt: telem.altAGL / 1000 });
-    } else {
-        // for debugging only — only `goto` is wired for now.
-        console.warn(`Unhandled context action "${actionName}"`, { lat: coord.y, lon: coord.x });
+    } else if (actionName === "add-waypoint") {
+        addWaypoint(coord);
+    } else if (actionName === "drop-marker") {
+        dropMarker(coord);
+    } else if (actionName === "measure") {
+        startMeasure(coord);
     }
     closeMenu();
 }
 let map = null;
 let planePoly = null;
 let stemMarker = null;
+let addWaypoint = null;
+let dropMarker = null;
+let startMeasure = null;
 
 const DEG2RAD = Math.PI / 180;
 const M_PER_DEG_LAT = 111320;
@@ -109,6 +121,8 @@ onMounted(() => {
     new maptalks.VectorLayer("plane", { enableAltitude: true })
         .addGeometry(planePoly)
         .addTo(map);
+
+    ({ addWaypoint, dropMarker, startMeasure } = useMapActions(map));
 });
 
 watch(
@@ -143,6 +157,7 @@ onUnmounted(() => {
             v-if="ctxMenu.show"
             class="ctx-menu"
             :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
+            @pointerdown.stop
         >
             <button @click="ctxAction('goto')">Goto</button>
             <button @click="ctxAction('add-waypoint')">Add Waypoint</button>
