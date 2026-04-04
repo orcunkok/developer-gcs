@@ -28,6 +28,7 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 - [ ] Color rules applied: values go amber or red based on thresholds
 - [ ] Double-click target area defined on the mini-fly header (handler stubbed, not implemented yet)
 - [ ] Section is visually separated from mini-think below it
+- [x] Add Mode Changes(goto,rtl,guided etc.)
 ---
 ## Left Pane: Mini-Think
 

@@ -178,6 +178,7 @@ export const useTelemStore = defineStore("telem", () => {
     },
     commandAck(p) {
       lastAck.value = p;
+      eventLog.addEvent("COMMAND_ACK", p);
     },
   };
 

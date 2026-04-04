@@ -1,6 +1,7 @@
 import * as maptalks from "maptalks";
 import { watch, onUnmounted } from "vue";
 import { useMissionStore } from "../stores/missionStore.js";
+import { registerAction } from "../actions.js";
 
 const MAV_FRAME_GLOBAL_RELATIVE_ALT = 3;
 const MAV_CMD_NAV_WAYPOINT = 16;
@@ -192,6 +193,21 @@ export function useMapActions(map) {
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
 
+  function clearMapActions() {
+    mission.items = [];
+    waypointLayer.clear();
+    markerLayer.clear();
+    measureLayer.clear();
+    _markerSeq = 0;
+    _measureStart = null;
+    if (_finishMeasureHandler) {
+      map.off("click", _finishMeasureHandler);
+      _finishMeasureHandler = null;
+    }
+  }
+
+  registerAction("clearMapActions", () => clearMapActions());
+
   onUnmounted(() => {
     if (_finishMeasureHandler) {
       map.off("click", _finishMeasureHandler);
@@ -203,5 +219,5 @@ export function useMapActions(map) {
     map.removeLayer(measureLayer);
   });
 
-  return { addWaypoint, dropMarker, startMeasure };
+  return { addWaypoint, dropMarker, startMeasure, clearMapActions };
 }
