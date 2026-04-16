@@ -124,6 +124,8 @@ AI:   Understood. I will inspect the target point first, then expand the search 
 
 Skills stay small. Missions must be interruptible and resumable. The runtime owns state, context, progress, and logging. The AI only sees approved primitives and approved skills. That is what keeps the system scalable, understandable, and easy for users to extend.
 
+Skills later, only if needed, when you see the LLM botching a repeated pattern, that pattern becomes a skill definition. 
+
 ## Success
 
 This MVP wins if a developer watches it and thinks: "This is faster than QGC for real work, and I could build my own skill pack on top of it." That is enough.
