@@ -16,7 +16,7 @@ The LLM *is* the skill engine at MVP. We don't need a skill loader, skill format
 The goal: user types a goal, LLM sees drone state + available actions, responds with text + action calls, runtime executes them, results flow back.
 
 - [ ] **Context builder** — pure function: `telemStore` + `missionStore` + `eventLog` → compact JSON snapshot. Position, heading, mode, armed, battery, home, mission progress, recent events. No fluff.
-- [ ] **LLM integration** — replace `/api/ai` stub with real Claude call on the bridge server. System prompt declares available primitives and their signatures. User message = goal + context snapshot.
+- [ ] **LLM integration** — replace `/api/ai` stub with real LLM call on the bridge server. System prompt declares available primitives and their signatures. User message = goal + context snapshot.
 - [ ] **Structured response contract** — LLM returns `{ text: string, actions?: Array<{ name, params }> }`. Text is what the user sees. Actions are what the runtime executes. That's it.
 - [ ] **Action executor** — iterate `response.actions`, call `invokeAction(name, params)` for each, collect results. Return results to the chat. If any action fails, stop and report.
 - [ ] **Chat upgrade** — show AI reasoning (text) and action results separately. Distinguish "AI is thinking" from "AI is executing."

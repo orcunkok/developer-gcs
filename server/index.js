@@ -169,26 +169,6 @@ function parseEnvelope(raw) {
 Bun.serve({
   port: WS_PORT,
   fetch(req, server) {
-    const url = new URL(req.url);
-    if (req.method === "POST" && url.pathname === "/api/ai") {
-      return req
-        .json()
-        .then((body) => {
-          const message = typeof body?.message === "string" ? body.message.trim() : "";
-          return Response.json({
-            ok: true,
-            reply: message
-              ? `Stub reply: received "${message}". Hook an LLM here later.`
-              : "Stub reply: no message provided.",
-          });
-        })
-        .catch(() =>
-          Response.json(
-            { ok: false, reply: "Invalid JSON body." },
-            { status: 400 },
-          ),
-        );
-    }
     if (server.upgrade(req)) return;
     return new Response("GCS Bridge", { status: 200 });
   },
