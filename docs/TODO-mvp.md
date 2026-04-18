@@ -1,6 +1,6 @@
 # MVP TODO
 
-**Status:** Not started  
+**Status:** Phase 0 complete  
 **Principle:** LLM reasons, primitives execute, runtime controls. Nothing else.
 
 ---
@@ -15,11 +15,11 @@ The LLM *is* the skill engine at MVP. We don't need a skill loader, skill format
 
 The goal: user types a goal, LLM sees drone state + available actions, responds with text + action calls, runtime executes them, results flow back.
 
-- [ ] **Context builder** — pure function: `telemStore` + `missionStore` + `eventLog` → compact JSON snapshot. Position, heading, mode, armed, battery, home, mission progress, recent events. No fluff.
-- [ ] **LLM integration** — replace `/api/ai` stub with real LLM call on the bridge server. System prompt declares available primitives and their signatures. User message = goal + context snapshot.
-- [ ] **Structured response contract** — LLM returns `{ text: string, actions?: Array<{ name, params }> }`. Text is what the user sees. Actions are what the runtime executes. That's it.
-- [ ] **Action executor** — iterate `response.actions`, call `invokeAction(name, params)` for each, collect results. Return results to the chat. If any action fails, stop and report.
-- [ ] **Chat upgrade** — show AI reasoning (text) and action results separately. Distinguish "AI is thinking" from "AI is executing."
+- [x] **Context builder** — pure function in `commander.js#snapshot()`. Converts MAVLink raw units to SI at the AI boundary.
+- [x] **LLM integration** — browser-direct Groq call (no bridge LLM). System prompt built from `renderPrimitives()` + `renderSkills()`.
+- [x] **Structured response contract** — `response_format: json_object`, `{ text, actions: [{name, params}] }`.
+- [x] **Action executor** — iterates actions, `invokeAction` + `waitForAck` against eventLogStore, stops on first fail.
+- [x] **Chat upgrade** — RightPane shows text + per-action ok/fail with error string.
 
 **Done when:** "arm and take off to 20 meters" works end to end in SITL.
 

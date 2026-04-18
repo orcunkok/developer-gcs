@@ -92,12 +92,12 @@ Build order: get to a flying, logging, rendering state as fast as possible. Hard
 ---
 ## AI Commander
 
-- [ ] Natural language input wired to aircraft commands
-- [ ] Supports: goto, orbit, change altitude, change speed, abort, return to home
+- [x] Natural language input wired to aircraft commands
+- [x] Supports: goto, ~~orbit~~, change altitude (via goto), ~~change speed~~, ~~abort~~, return to home (via setMode RTL)
 - [ ] Each command requires a plain-English confirmation before sending
 - [ ] Confirmation shows what command will be sent before execution
 - [ ] Refusals are plain and specific: "cannot arm while pre-flight checks are incomplete"
-- [ ] AI Commander is a thin layer over the same adapter as the console. Same commands, different interface
+- [x] AI Commander is a thin layer over the action registry. Same actions as console will use
 ---
 ## AI GCS
 
