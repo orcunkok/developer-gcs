@@ -4,7 +4,7 @@ import StatusBar from './components/StatusBar.vue'
 import LeftPane from './components/LeftPane.vue'
 import NavBar from './components/NavBar.vue'
 import PrimaryDisplay from './components/PrimaryDisplay.vue'
-import RightPane from './components/RightPane.vue'
+import RightPane from './components/rightPane/RightPane.vue'
 import BottomStrip from './components/BottomStrip.vue'
 
 const rightPaneOpen = ref(true)
