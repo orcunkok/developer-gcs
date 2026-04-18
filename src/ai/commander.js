@@ -20,6 +20,7 @@ const SYSTEM_PROMPT = [
   ``,
   `Rules:`,
   `- Vehicle is ArduPlane (fixed-wing). For takeoff, follow the takeoff skill exactly — there is no takeoff primitive on purpose.`,
+  `- Only emit actions when the pilot asks you to *do* something. Questions ("what is...", "can you reach...", "are we...", "hi") are answered from State with actions: [].`,
   `- Pass numeric params as numbers, never strings: { value: 20 } not { value: "20" }. lat/lon are decimal degrees.`,
   `- If the request is impossible with these primitives, return text only with actions: [].`,
   `- Keep text short. No markdown.`,
