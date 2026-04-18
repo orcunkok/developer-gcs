@@ -23,11 +23,6 @@ export const SKILLS = [
   },
 ];
 
-export function renderSkills() {
-  if (!SKILLS.length) return "";
-  const lines = SKILLS.map((s) => {
-    const steps = s.steps?.length ? "\n    " + s.steps.join("\n    ") : "";
-    return `- ${s.name} — ${s.purpose}${steps}`;
-  });
-  return "Skills (named recipes you may follow):\n" + lines.join("\n");
-}
+export const RENDERED_SKILLS = !SKILLS.length ? "" :
+  "Skills (named recipes you may follow):\n" +
+  SKILLS.map((s) => `- ${s.name} — ${s.purpose}` + (s.steps?.length ? "\n    " + s.steps.join("\n    ") : "")).join("\n");

@@ -1,32 +1,32 @@
 import { invokeAction } from "../actions.js";
 import { useTelemStore } from "../stores/telemStore.js";
 import { useEventLogStore } from "../stores/eventLogStore.js";
-import { renderPrimitives, ackCommandFor } from "./primitives.js";
-import { renderSkills } from "./skills.js";
+import { RENDERED_PRIMITIVES, ackCommandFor } from "./primitives.js";
+import { RENDERED_SKILLS } from "./skills.js";
+import { RENDERED_TOOLS, runTool } from "./tools.js";
 
-const SYSTEM_PROMPT = [
-  `You are the AI commander for an ArduPilot aircraft.`,
-  ``,
-  `Reply with pure JSON, no prose outside the JSON:`,
-  `{ "text": "<one or two sentences for the pilot>",`,
-  `  "actions": [ { "name": "...", "params": {...} } ] }`,
-  ``,
-  `The runtime executes the actions in order, waits for autopilot ACKs, and reports results back to the pilot. There is no follow-up turn — issue every action you need now.`,
-  ``,
-  `Primitives:`,
-  renderPrimitives(),
-  ``,
-  renderSkills(),
-  ``,
-  `Rules:`,
-  `- Vehicle is ArduPlane (fixed-wing). For takeoff, follow the takeoff skill exactly — there is no takeoff primitive on purpose.`,
-  `- Only emit actions when the pilot asks you to *do* something. Questions ("what is...", "can you reach...", "are we...", "hi") are answered from State with actions: [].`,
-  `- Pass numeric params as numbers, never strings: { value: 20 } not { value: "20" }. lat/lon are decimal degrees.`,
-  `- If the request is impossible with these primitives, return text only with actions: [].`,
-  `- Keep text short. No markdown.`,
-]
-  .filter((line) => line !== "")
-  .join("\n");
+const SYSTEM_PROMPT = `You are the AI commander for an ArduPilot aircraft.
+
+Reply with pure JSON, no prose outside the JSON:
+{ "text": "<one or two sentences for the pilot>",
+  "let":  { "<name>": { "tool": "...", "args": {...} } },   // optional
+  "actions": [ { "name": "...", "params": {...} } ] }
+
+The runtime runs every entry in "let" first (in order), then executes the actions in order, waiting for autopilot ACKs. Reference computed values in action params with the string "$<name>.<field>" — e.g. "$p.lat". There is no follow-up turn — issue everything now.
+
+Primitives (mutate the aircraft):
+${RENDERED_PRIMITIVES}
+
+${RENDERED_TOOLS}
+
+${RENDERED_SKILLS}
+
+Rules:
+- Vehicle is ArduPlane (fixed-wing). For takeoff, follow the takeoff skill exactly — there is no takeoff primitive on purpose.
+- Only emit actions when the pilot asks you to *do* something. Questions ("what is...", "can you reach...", "are we...", "hi") are answered from State with actions: [].
+- Pass numeric params as numbers, never strings: { value: 20 } not { value: "20" }. lat/lon are decimal degrees.
+- If the request is impossible with these primitives, return text only with actions: [].
+- Keep text short. No markdown.`;
 
 const ACK_TIMEOUT_MS = 1500;
 
@@ -34,47 +34,35 @@ const ACK_TIMEOUT_MS = 1500;
 // Raw values are kept in stores per project rule; convert only at the consumer.
 function snapshot() {
   const t = useTelemStore();
-  const e = useEventLogStore();
   const now = Date.now();
   return {
     armed: t.armed,
     mode: t.mode,
-    position: {
-      lat: t.lat * 1e-7,
-      lon: t.lon * 1e-7,
-      altMSL_m: t.altMSL * 1e-3,
-      altAGL_m: t.altAGL * 1e-3,
-    },
+    position: { lat: t.lat * 1e-7, lon: t.lon * 1e-7, altMSL_m: t.altMSL * 1e-3, altAGL_m: t.altAGL * 1e-3 },
     heading_deg: t.heading * 1e-2,
     groundSpeed_mps: t.groundSpeed,
     battery: { voltage_v: t.voltage * 1e-3, remaining_pct: t.remaining },
-    home: t.homeLat != null
-      ? { lat: t.homeLat * 1e-7, lon: t.homeLon * 1e-7, alt_m: t.homeAlt * 1e-3 }
-      : null,
+    home: t.homeLat == null ? null
+      : { lat: t.homeLat * 1e-7, lon: t.homeLon * 1e-7, alt_m: t.homeAlt * 1e-3 },
     mission: { current: t.currentWaypoint, total: t.missionTotal },
-    recentEvents: e
-      .recentEvents(15_000)
+    recentEvents: useEventLogStore().recentEvents(15_000)
       .filter((ev) => !ev.type.startsWith("AI_"))
       .map((ev) => ({ tAgo: now - ev.t, type: ev.type, data: ev.data })),
   };
 }
 
 function waitForAck(ackCommand, sentAt) {
-  if (!ackCommand) return Promise.resolve(null); // primitive doesn't ACK
+  if (!ackCommand) return Promise.resolve(null);
   const e = useEventLogStore();
+  const deadline = sentAt + ACK_TIMEOUT_MS;
   return new Promise((resolve) => {
-    const start = Date.now();
     const tick = () => {
-      const events = e.recentEvents(ACK_TIMEOUT_MS + 500);
-      for (let i = events.length - 1; i >= 0; i--) {
+      const events = e.recentEvents(Date.now() - sentAt + 100);
+      for (let i = events.length - 1; i >= 0 && events[i].t >= sentAt; i--) {
         const ev = events[i];
-        if (ev.t < sentAt) break;
-        if (ev.type === "COMMAND_ACK" && ev.data?.command === ackCommand) {
-          return resolve(ev.data);
-        }
+        if (ev.type === "COMMAND_ACK" && ev.data?.command === ackCommand) return resolve(ev.data);
       }
-      if (Date.now() - start >= ACK_TIMEOUT_MS) return resolve(null);
-      setTimeout(tick, 50);
+      Date.now() >= deadline ? resolve(null) : setTimeout(tick, 50);
     };
     tick();
   });
@@ -102,33 +90,59 @@ async function callLLM(goal, context) {
   return JSON.parse(choices[0].message.content);
 }
 
+// Resolve "$name.field" strings inside params using the let-bindings.
+function resolve(v, b) {
+  if (typeof v === "string" && v[0] === "$") {
+    const [name, ...path] = v.slice(1).split(".");
+    return path.reduce((x, k) => x?.[k], b[name]);
+  }
+  if (Array.isArray(v)) return v.map((x) => resolve(x, b));
+  if (v && typeof v === "object") {
+    const out = {};
+    for (const k in v) out[k] = resolve(v[k], b);
+    return out;
+  }
+  return v;
+}
+
 export async function runCommander(goal) {
   const e = useEventLogStore();
-  const plan = await callLLM(goal, snapshot());
-  const actions = Array.isArray(plan.actions) ? plan.actions : [];
-  e.addEvent("AI_PLAN", { goal, text: plan.text, actions });
+  const ctx = snapshot();
+  const plan = await callLLM(goal, ctx);
+
+  const tools = [];
+  const bindings = {};
+  for (const [name, { tool, args = {} }] of Object.entries(plan.let ?? {})) {
+    try {
+      const result = runTool(tool, args, ctx);
+      bindings[name] = result;
+      tools.push({ name, tool, args, result });
+      e.addEvent("AI_TOOL", { name, tool, args, result });
+    } catch (err) {
+      e.addEvent("AI_ERROR", { tool, error: err.message });
+      return { text: plan.text || "", tools, results: [] };
+    }
+  }
+
+  const actions = (plan.actions ?? []).map((a) => ({
+    name: a.name,
+    params: resolve(a.params ?? {}, bindings),
+  }));
+  e.addEvent("AI_PLAN", { goal, text: plan.text, bindings, actions });
 
   const results = [];
   for (const a of actions) {
     const sentAt = Date.now();
-    const r = invokeAction(a.name, a.params ?? {});
-    let ok = r.ok;
-    let error = r.error;
+    let { ok, error } = invokeAction(a.name, a.params);
     if (ok) {
       const ack = await waitForAck(ackCommandFor(a.name), sentAt);
-      if (ack && ack.result !== "ACCEPTED") {
-        ok = false;
-        error = `${ack.command} ${ack.result}`;
-      }
+      if (ack && ack.result !== "ACCEPTED") { ok = false; error = `${ack.command} ${ack.result}`; }
     }
-    const result = { name: a.name, params: a.params, ok, error };
-    results.push(result);
-    e.addEvent("AI_ACTION", result);
-    if (!ok) {
-      e.addEvent("AI_ERROR", { name: a.name, error });
-      break;
-    }
+    const r = { name: a.name, params: a.params, ok, error };
+    results.push(r);
+    e.addEvent("AI_ACTION", r);
+    if (!ok) { e.addEvent("AI_ERROR", { name: a.name, error }); break; }
   }
 
-  return { text: plan.text || "", results };
+  return { text: plan.text || "", tools, results };
 }

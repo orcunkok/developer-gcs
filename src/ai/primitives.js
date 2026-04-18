@@ -45,13 +45,9 @@ export const PRIMITIVES = [
   },
 ];
 
-export function ackCommandFor(name) {
-  return PRIMITIVES.find((p) => p.name === name)?.ackCommand;
-}
+const BY_NAME = new Map(PRIMITIVES.map((p) => [p.name, p]));
+export const ackCommandFor = (name) => BY_NAME.get(name)?.ackCommand;
 
-export function renderPrimitives() {
-  return PRIMITIVES.map((p) => {
-    const sig = Object.keys(p.params).length ? " " + JSON.stringify(p.params) : "";
-    return `- ${p.name}${sig} — ${p.purpose}`;
-  }).join("\n");
-}
+export const RENDERED_PRIMITIVES = PRIMITIVES
+  .map((p) => `- ${p.name}${Object.keys(p.params).length ? " " + JSON.stringify(p.params) : ""} — ${p.purpose}`)
+  .join("\n");

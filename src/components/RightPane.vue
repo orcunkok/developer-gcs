@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from "vue";
+import { Wrench, Send, Check, X } from "lucide-vue-next";
 import { runCommander } from "../ai/commander.js";
 
 const input = ref("");
@@ -15,8 +16,8 @@ async function submit() {
     busy.value = true;
 
     try {
-        const { text, results } = await runCommander(goal);
-        messages.value.push({ role: "assistant", text, results });
+        const { text, tools, results } = await runCommander(goal);
+        messages.value.push({ role: "assistant", text, tools, results });
     } catch (err) {
         messages.value.push({ role: "error", text: err?.message || String(err) });
     } finally {
@@ -43,10 +44,14 @@ function onKeydown(event) {
                 :data-role="m.role"
             >
                 <div v-if="m.text">{{ m.text }}</div>
-                <ul v-if="m.results?.length" class="msg__actions">
-                    <li v-for="(r, j) in m.results" :key="j" :data-ok="r.ok">
-                        → {{ r.name }} {{ JSON.stringify(r.params ?? {}) }}
-                        — {{ r.ok ? "ok" : `fail: ${r.error}` }}
+                <ul v-if="m.tools?.length || m.results?.length" class="msg__steps">
+                    <li v-for="(t, j) in m.tools" :key="`t${j}`" class="step step--tool" :title="JSON.stringify({ args: t.args, result: t.result })">
+                        <Wrench :size="12" /> {{ t.tool }}
+                    </li>
+                    <li v-for="(r, j) in m.results" :key="`a${j}`" class="step step--action" :data-ok="r.ok" :title="JSON.stringify(r.params)">
+                        <Send :size="12" /> {{ r.name }}
+                        <Check v-if="r.ok" :size="12" />
+                        <X v-else :size="12" />
                     </li>
                 </ul>
             </div>
@@ -95,12 +100,20 @@ function onKeydown(event) {
 .msg[data-role="error"] { color: #b00020; }
 .msg[data-role="thinking"] { opacity: 0.6; font-style: italic; }
 
-.msg__actions {
+.msg__steps {
     list-style: none;
     margin: 4px 0 0;
     padding: 0;
 }
-.msg__actions li[data-ok="false"] { color: #b00020; }
+.step {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 6px;
+}
+.step--tool { color: #5a3a99; }
+.step--action[data-ok="true"] { color: #1f6f3a; }
+.step--action[data-ok="false"] { color: #b00020; }
 
 .right-pane__input {
     min-height: 80px;
