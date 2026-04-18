@@ -3,7 +3,8 @@ import { useTelemStore } from "../stores/telemStore.js";
 import { useEventLogStore } from "../stores/eventLogStore.js";
 import { RENDERED_PRIMITIVES, ackCommandFor } from "./primitives.js";
 import { RENDERED_SKILLS } from "./skills.js";
-import { RENDERED_TOOLS, runTool } from "./tools.js";
+import { RENDERED_TOOLS, runTool, isRegisteredTool } from "./tools.js";
+import { setRunner, activeSchedules } from "./scheduler.js";
 
 const SYSTEM_PROMPT = `You are the AI commander for an ArduPilot aircraft.
 
@@ -45,6 +46,7 @@ function snapshot() {
     home: t.homeLat == null ? null
       : { lat: t.homeLat * 1e-7, lon: t.homeLon * 1e-7, alt_m: t.homeAlt * 1e-3 },
     mission: { current: t.currentWaypoint, total: t.missionTotal },
+    activeSchedules: activeSchedules(),
     recentEvents: useEventLogStore().recentEvents(15_000)
       .filter((ev) => !ev.type.startsWith("AI_"))
       .map((ev) => ({ tAgo: now - ev.t, type: ev.type, data: ev.data })),
@@ -105,22 +107,54 @@ function resolve(v, b) {
   return v;
 }
 
-export async function runCommander(goal) {
+/** Inline "$a.b.c" inside natural-language strings (schedule goals, etc.). */
+function resolveGoalTemplate(str, b) {
+  if (typeof str !== "string") return str;
+  return str.replace(/\$([a-zA-Z_]\w*)((?:\.[a-zA-Z_]\w*)*)/g, (full, name, dotPath) => {
+    const path = dotPath ? dotPath.slice(1).split(".").filter(Boolean) : [];
+    let x = b[name];
+    for (const k of path) x = x?.[k];
+    if (x === undefined || x === null) return full;
+    if (typeof x === "object") return JSON.stringify(x);
+    return String(x);
+  });
+}
+
+function argsForTool(tool, args, bindings) {
+  let a = resolve(args, bindings);
+  if (tool === "schedule" && typeof a.goal === "string")
+    a = { ...a, goal: resolveGoalTemplate(a.goal, bindings) };
+  return a;
+}
+
+const runListeners = new Set();
+export function onRun(fn) { runListeners.add(fn); return () => runListeners.delete(fn); }
+function emit(payload) { for (const fn of runListeners) fn(payload); }
+
+export async function runCommander(goal, source = "user") {
   const e = useEventLogStore();
-  const ctx = snapshot();
-  const plan = await callLLM(goal, ctx);
+  let ctx, plan;
+  try {
+    ctx = snapshot();
+    plan = await callLLM(goal, ctx);
+  } catch (err) {
+    emit({ goal, source, text: "", tools: [], results: [], error: err?.message || String(err) });
+    return;
+  }
 
   const tools = [];
   const bindings = {};
   for (const [name, { tool, args = {} }] of Object.entries(plan.let ?? {})) {
     try {
-      const result = runTool(tool, args, ctx);
+      const resolvedArgs = argsForTool(tool, args, bindings);
+      const result = runTool(tool, resolvedArgs, ctx);
       bindings[name] = result;
-      tools.push({ name, tool, args, result });
-      e.addEvent("AI_TOOL", { name, tool, args, result });
+      tools.push({ name, tool, args: resolvedArgs, result });
+      e.addEvent("AI_TOOL", { name, tool, args: resolvedArgs, result });
     } catch (err) {
       e.addEvent("AI_ERROR", { tool, error: err.message });
-      return { text: plan.text || "", tools, results: [] };
+      emit({ goal, source, text: plan.text || "", tools, results: [], error: err.message });
+      return;
     }
   }
 
@@ -132,6 +166,19 @@ export async function runCommander(goal) {
 
   const results = [];
   for (const a of actions) {
+    if (isRegisteredTool(a.name)) {
+      try {
+        const resolvedArgs = argsForTool(a.name, a.params, bindings);
+        const result = runTool(a.name, resolvedArgs, ctx);
+        tools.push({ name: a.name, tool: a.name, args: resolvedArgs, result });
+        e.addEvent("AI_TOOL", { name: a.name, tool: a.name, args: resolvedArgs, result });
+      } catch (err) {
+        e.addEvent("AI_ERROR", { tool: a.name, error: err.message });
+        emit({ goal, source, text: plan.text || "", tools, results: [], error: err.message });
+        return;
+      }
+      continue;
+    }
     const sentAt = Date.now();
     let { ok, error } = invokeAction(a.name, a.params);
     if (ok) {
@@ -144,5 +191,7 @@ export async function runCommander(goal) {
     if (!ok) { e.addEvent("AI_ERROR", { name: a.name, error }); break; }
   }
 
-  return { text: plan.text || "", tools, results };
+  emit({ goal, source, text: plan.text || "", tools, results });
 }
+
+setRunner(runCommander);

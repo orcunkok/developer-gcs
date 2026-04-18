@@ -1,7 +1,7 @@
 <script setup>
-import { ref, markRaw, nextTick, useTemplateRef } from "vue";
-import { Wrench, Send, Check, X } from "lucide-vue-next";
-import { runCommander } from "../../ai/commander.js";
+import { ref, markRaw, nextTick, useTemplateRef, onMounted, onUnmounted } from "vue";
+import { Wrench, Send, Check, X, Timer } from "lucide-vue-next";
+import { runCommander, onRun } from "../../ai/commander.js";
 
 const input = ref("");
 const busy = ref(false);
@@ -24,19 +24,24 @@ async function submit() {
   push({ role: "user", text: goal });
   input.value = "";
   busy.value = true;
-  try {
-    const { text, tools, results } = await runCommander(goal);
-    push({ role: "assistant", text, tools, results });
-  } catch (err) {
-    push({ role: "error", text: err?.message || String(err) });
-  } finally {
-    busy.value = false;
-  }
+  await runCommander(goal);
+  busy.value = false;
 }
 
 function onKeydown(e) {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
 }
+
+let unsub;
+onMounted(() => {
+  unsub = onRun(({ source, goal, text, tools, results, error }) => {
+    if (error) return push({ role: "error", text: error, tools, results });
+    const role = source === "user" ? "assistant" : "scheduled";
+    const prefix = source === "user" ? "" : `⏱ ${source} ${goal} — `;
+    push({ role, text: prefix + (text || ""), tools, results });
+  });
+});
+onUnmounted(() => unsub?.());
 </script>
 
 <template>
@@ -46,8 +51,8 @@ function onKeydown(e) {
       <div v-for="m in messages" :key="m.id" class="msg" :data-role="m.role">
         <div v-if="m.text">{{ m.text }}</div>
         <ul v-if="m.tools?.length || m.results?.length" class="msg__steps">
-          <li v-for="(t, j) in m.tools" :key="`t${j}`" class="step step--tool" :title="t._title">
-            <Wrench :size="12" /> {{ t.tool }}
+          <li v-for="(t, j) in m.tools" :key="`t${j}`" class="step" :class="t.tool === 'schedule' ? 'step--schedule' : 'step--tool'" :title="t._title">
+            <component :is="t.tool === 'schedule' ? Timer : Wrench" :size="12" /> {{ t.tool }}
           </li>
           <li v-for="(r, j) in m.results" :key="`a${j}`" class="step step--action"
               :data-ok="r.ok" :title="r._title">
@@ -70,14 +75,24 @@ function onKeydown(e) {
 .chat__messages {
   flex: 1; overflow: auto; border: 1px solid var(--border); padding: 6px;
   font: 12px var(--font-mono, monospace); white-space: pre-wrap;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.msg + .msg { margin-top: 8px; }
-.msg[data-role="user"] { font-weight: bold; }
+.msg[data-role="user"] {
+  align-self: flex-end;
+  width: fit-content;
+  max-width: min(92%, 100%);
+  text-align: right;
+  font-weight: bold;
+}
 .msg[data-role="error"] { color: #b00020; }
 .msg[data-role="thinking"] { opacity: 0.6; font-style: italic; }
+.msg[data-role="scheduled"] { color: #5a3a99; }
 .msg__steps { list-style: none; margin: 4px 0 0; padding: 0; }
 .step { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; }
 .step--tool { color: #5a3a99; }
+.step--schedule { color: #b8731f; }
 .step--action[data-ok="true"] { color: #1f6f3a; }
 .step--action[data-ok="false"] { color: #b00020; }
 .chat__input { min-height: 80px; resize: none; border: 1px solid var(--border); padding: 6px; font: inherit; }

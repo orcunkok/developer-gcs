@@ -1,11 +1,12 @@
 /**
- * Tools — pure read-only helpers the LLM can call to compute values
- * (coordinates, distances) before issuing actions. Tools never mutate;
- * primitives do that.
+ * Tools — helpers the LLM calls in `let` to compute values or arrange
+ * follow-up runs. Most are pure (geo); some have side effects (schedule).
  *
  * Each tool: { name, purpose, params, fn(args, ctx) }.
  * `ctx` is the snapshot the LLM saw, so tools resolve "currentPosition" / "home".
  */
+
+import { schedule, cancelSchedule } from "./scheduler.js";
 
 const R = 6371000;
 const D = Math.PI / 180;
@@ -50,6 +51,18 @@ export const TOOLS = [
       return { lat: φ2 / D, lon: λ2 / D };
     },
   },
+  {
+    name: "schedule",
+    purpose: "Run a follow-up goal after `delaySec` (>=10s). With `periodSec` (>=10s) it repeats. Use sparingly — each fire is a full LLM call. Returns { id }.",
+    params: { goal: "natural-language goal for the next run", delaySec: "seconds", periodSec: "seconds (optional, repeating)" },
+    fn: (args) => schedule(args),
+  },
+  {
+    name: "cancelSchedule",
+    purpose: "Cancel an active schedule by id (see activeSchedules in state).",
+    params: { id: "number" },
+    fn: (args) => cancelSchedule(args),
+  },
 ];
 
 const BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
@@ -58,6 +71,10 @@ export function runTool(name, args, ctx) {
   const t = BY_NAME.get(name);
   if (!t) throw new Error(`unknown tool: ${name}`);
   return t.fn(args, ctx);
+}
+
+export function isRegisteredTool(name) {
+  return BY_NAME.has(name);
 }
 
 export const RENDERED_TOOLS =
