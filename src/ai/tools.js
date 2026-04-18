@@ -73,10 +73,6 @@ export function runTool(name, args, ctx) {
   return t.fn(args, ctx);
 }
 
-export function isRegisteredTool(name) {
-  return BY_NAME.has(name);
-}
-
 export const RENDERED_TOOLS =
   "Tools (call via let, then reference results in action params with $name.field):\n" +
   TOOLS.map((t) => `- ${t.name} ${JSON.stringify(t.params)} — ${t.purpose}`).join("\n");

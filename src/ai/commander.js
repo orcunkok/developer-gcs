@@ -3,7 +3,7 @@ import { useTelemStore } from "../stores/telemStore.js";
 import { useEventLogStore } from "../stores/eventLogStore.js";
 import { RENDERED_PRIMITIVES, ackCommandFor } from "./primitives.js";
 import { RENDERED_SKILLS } from "./skills.js";
-import { RENDERED_TOOLS, runTool, isRegisteredTool } from "./tools.js";
+import { RENDERED_TOOLS, runTool } from "./tools.js";
 import { setRunner, activeSchedules } from "./scheduler.js";
 
 const SYSTEM_PROMPT = `You are the AI commander for an ArduPilot aircraft.
@@ -24,6 +24,7 @@ ${RENDERED_SKILLS}
 
 Rules:
 - Vehicle is ArduPlane (fixed-wing). For takeoff, follow the takeoff skill exactly — there is no takeoff primitive on purpose.
+- Tools go in "let", never in "actions". Actions are aircraft primitives only.
 - Only emit actions when the pilot asks you to *do* something. Questions ("what is...", "can you reach...", "are we...", "hi") are answered from State with actions: [].
 - Pass numeric params as numbers, never strings: { value: 20 } not { value: "20" }. lat/lon are decimal degrees.
 - If the request is impossible with these primitives, return text only with actions: [].
@@ -166,19 +167,6 @@ export async function runCommander(goal, source = "user") {
 
   const results = [];
   for (const a of actions) {
-    if (isRegisteredTool(a.name)) {
-      try {
-        const resolvedArgs = argsForTool(a.name, a.params, bindings);
-        const result = runTool(a.name, resolvedArgs, ctx);
-        tools.push({ name: a.name, tool: a.name, args: resolvedArgs, result });
-        e.addEvent("AI_TOOL", { name: a.name, tool: a.name, args: resolvedArgs, result });
-      } catch (err) {
-        e.addEvent("AI_ERROR", { tool: a.name, error: err.message });
-        emit({ goal, source, text: plan.text || "", tools, results: [], error: err.message });
-        return;
-      }
-      continue;
-    }
     const sentAt = Date.now();
     let { ok, error } = invokeAction(a.name, a.params);
     if (ok) {
