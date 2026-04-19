@@ -36,7 +36,7 @@ let unsub;
 onMounted(() => {
   unsub = onRun(({ source, goal, text, tools, results, error }) => {
     if (error) return push({ role: "error", text: error, tools, results });
-    const role = source === "user" ? "assistant" : "scheduled";
+    const role = source === "user" ? "assistant" : "cron";
     const prefix = source === "user" ? "" : `⏱ ${source} ${goal} — `;
     push({ role, text: prefix + (text || ""), tools, results });
   });
@@ -51,8 +51,8 @@ onUnmounted(() => unsub?.());
       <div v-for="m in messages" :key="m.id" class="msg" :data-role="m.role">
         <div v-if="m.text">{{ m.text }}</div>
         <ul v-if="m.tools?.length || m.results?.length" class="msg__steps">
-          <li v-for="(t, j) in m.tools" :key="`t${j}`" class="step" :class="t.tool === 'schedule' ? 'step--schedule' : 'step--tool'" :title="t._title">
-            <component :is="t.tool === 'schedule' ? Timer : Wrench" :size="12" /> {{ t.tool }}
+          <li v-for="(t, j) in m.tools" :key="`t${j}`" class="step" :class="t.tool === 'cron' ? 'step--cron' : 'step--tool'" :title="t._title">
+            <component :is="t.tool === 'cron' ? Timer : Wrench" :size="12" /> {{ t.tool }}
           </li>
           <li v-for="(r, j) in m.results" :key="`a${j}`" class="step step--action"
               :data-ok="r.ok" :title="r._title">
@@ -88,11 +88,11 @@ onUnmounted(() => unsub?.());
 }
 .msg[data-role="error"] { color: #b00020; }
 .msg[data-role="thinking"] { opacity: 0.6; font-style: italic; }
-.msg[data-role="scheduled"] { color: #5a3a99; }
+.msg[data-role="cron"] { color: #5a3a99; }
 .msg__steps { list-style: none; margin: 4px 0 0; padding: 0; }
 .step { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; }
 .step--tool { color: #5a3a99; }
-.step--schedule { color: #b8731f; }
+.step--cron { color: #b8731f; }
 .step--action[data-ok="true"] { color: #1f6f3a; }
 .step--action[data-ok="false"] { color: #b00020; }
 .chat__input { min-height: 80px; resize: none; border: 1px solid var(--border); padding: 6px; font: inherit; }

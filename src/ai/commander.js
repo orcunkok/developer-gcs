@@ -4,7 +4,7 @@ import { useEventLogStore } from "../stores/eventLogStore.js";
 import { RENDERED_PRIMITIVES, ackCommandFor } from "./primitives.js";
 import { RENDERED_SKILLS } from "./skills.js";
 import { RENDERED_TOOLS, runTool } from "./tools.js";
-import { setRunner, activeSchedules } from "./scheduler.js";
+import { setRunner, activeCrons } from "./cron.js";
 
 const SYSTEM_PROMPT = `You are the AI commander for an ArduPilot aircraft.
 
@@ -36,8 +36,10 @@ const ACK_TIMEOUT_MS = 1500;
 // Raw values are kept in stores per project rule; convert only at the consumer.
 function snapshot() {
   const t = useTelemStore();
+  if (t.connState !== "connected") return { link: t.connState };
   const now = Date.now();
   return {
+    link: "connected",
     armed: t.armed,
     mode: t.mode,
     position: { lat: t.lat * 1e-7, lon: t.lon * 1e-7, altMSL_m: t.altMSL * 1e-3, altAGL_m: t.altAGL * 1e-3 },
@@ -47,7 +49,7 @@ function snapshot() {
     home: t.homeLat == null ? null
       : { lat: t.homeLat * 1e-7, lon: t.homeLon * 1e-7, alt_m: t.homeAlt * 1e-3 },
     mission: { current: t.currentWaypoint, total: t.missionTotal },
-    activeSchedules: activeSchedules(),
+    activeCrons: activeCrons(),
     recentEvents: useEventLogStore().recentEvents(15_000)
       .filter((ev) => !ev.type.startsWith("AI_"))
       .map((ev) => ({ tAgo: now - ev.t, type: ev.type, data: ev.data })),
@@ -108,7 +110,7 @@ function resolve(v, b) {
   return v;
 }
 
-/** Inline "$a.b.c" inside natural-language strings (schedule goals, etc.). */
+/** Inline "$a.b.c" inside natural-language strings (cron goals, etc.). */
 function resolveGoalTemplate(str, b) {
   if (typeof str !== "string") return str;
   return str.replace(/\$([a-zA-Z_]\w*)((?:\.[a-zA-Z_]\w*)*)/g, (full, name, dotPath) => {
@@ -123,7 +125,7 @@ function resolveGoalTemplate(str, b) {
 
 function argsForTool(tool, args, bindings) {
   let a = resolve(args, bindings);
-  if (tool === "schedule" && typeof a.goal === "string")
+  if (tool === "cron" && typeof a.goal === "string")
     a = { ...a, goal: resolveGoalTemplate(a.goal, bindings) };
   return a;
 }
@@ -146,15 +148,18 @@ export async function runCommander(goal, source = "user") {
   const tools = [];
   const bindings = {};
   for (const [name, { tool, args = {} }] of Object.entries(plan.let ?? {})) {
+    let resolvedArgs;
     try {
-      const resolvedArgs = argsForTool(tool, args, bindings);
+      resolvedArgs = argsForTool(tool, args, bindings);
       const result = runTool(tool, resolvedArgs, ctx);
       bindings[name] = result;
       tools.push({ name, tool, args: resolvedArgs, result });
       e.addEvent("AI_TOOL", { name, tool, args: resolvedArgs, result });
     } catch (err) {
-      e.addEvent("AI_ERROR", { tool, error: err.message });
-      emit({ goal, source, text: plan.text || "", tools, results: [], error: err.message });
+      const msg = `${tool}(${JSON.stringify(resolvedArgs ?? args)}): ${err.message}`;
+      tools.push({ name, tool, args: resolvedArgs ?? args, error: err.message });
+      e.addEvent("AI_ERROR", { tool, args: resolvedArgs ?? args, error: err.message });
+      emit({ goal, source, text: plan.text || "", tools, results: [], error: msg });
       return;
     }
   }

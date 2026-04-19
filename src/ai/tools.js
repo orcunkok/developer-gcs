@@ -1,20 +1,26 @@
 /**
  * Tools — helpers the LLM calls in `let` to compute values or arrange
- * follow-up runs. Most are pure (geo); some have side effects (schedule).
+ * follow-up runs. Most are pure (geo); some have side effects (cron).
  *
  * Each tool: { name, purpose, params, fn(args, ctx) }.
  * `ctx` is the snapshot the LLM saw, so tools resolve "currentPosition" / "home".
  */
 
-import { schedule, cancelSchedule } from "./scheduler.js";
+import { cron, cancelCron } from "./cron.js";
 
 const R = 6371000;
 const D = Math.PI / 180;
 
 function ref(r, ctx) {
   if (r?.lat != null && r?.lon != null) return r;
-  if (r === "currentPosition" || r === "current") return ctx.position;
-  if (r === "home") return ctx.home;
+  if (r === "currentPosition" || r === "current") {
+    if (!ctx.position || ctx.position.lat == null) throw new Error("no currentPosition in state");
+    return ctx.position;
+  }
+  if (r === "home") {
+    if (!ctx.home) throw new Error("home is not set");
+    return ctx.home;
+  }
   throw new Error(`unknown reference: ${JSON.stringify(r)}`);
 }
 
@@ -52,16 +58,16 @@ export const TOOLS = [
     },
   },
   {
-    name: "schedule",
+    name: "cron",
     purpose: "Run a follow-up goal after `delaySec` (>=10s). With `periodSec` (>=10s) it repeats. Use sparingly — each fire is a full LLM call. Returns { id }.",
     params: { goal: "natural-language goal for the next run", delaySec: "seconds", periodSec: "seconds (optional, repeating)" },
-    fn: (args) => schedule(args),
+    fn: (args) => cron(args),
   },
   {
-    name: "cancelSchedule",
-    purpose: "Cancel an active schedule by id (see activeSchedules in state).",
+    name: "cancelCron",
+    purpose: "Cancel an active cron job by id (see activeCrons in state).",
     params: { id: "number" },
-    fn: (args) => cancelSchedule(args),
+    fn: (args) => cancelCron(args),
   },
 ];
 
