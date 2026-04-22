@@ -1,0 +1,79 @@
+
+# Drone DSL — Reimagining the Skill/Mission System
+
+## Context
+We have a working drone control system where an AI assistant uses tools to fly drones. It currently has: actions, state/memory, sequencing, and cron jobs. We're redesigning the core skill/mission layer to be simpler, more expressive, and token-efficient.
+
+**Do not get anchored to the existing implementation.** Treat this as a fresh design. We'll migrate later.
+
+## Goal
+A minimal, Lego-like primitive set the AI can use to compose any mission — from a one-liner to a complex autonomous behavior — via a small, forgiving DSL.
+
+## Core Primitives (the whole language)
+1. **actions** — existing tool calls (takeoff, goto, land, etc.)
+2. **state** — read/write memory (already exists)
+3. **if/else** — conditional branching
+4. **loop** — repeat N times or forever
+5. **until-guard** — run a block until a condition becomes true
+6. **on-event** — reactive trigger: `on(condition) -> block`
+7. **handles** — named references to running tasks (pause/cancel/query)
+8. **cron** — scheduled polling (already exists)
+9. **compose** — skills can call other skills
+10. **parallel** — run blocks concurrently
+11. **try/fallback** — `try A else B` for graceful failure
+12. **wait** — delay or wait-until condition
+
+That's the entire language. Anything else lives as a tool or skill.
+
+## DSL Syntax Rules
+- **Forgiving parser**: whitespace-insensitive, case-insensitive keywords, optional semicolons, optional trailing commas, `=` and `:` interchangeable for named args.
+- **Parens required** for function calls (`goto(100, 0)`) — LLMs emit this naturally.
+- **Blocks**: accept `{ ... }`, `: stmt`, or indentation.
+- On parse failure: return a clear error; we'll add LLM repair later.
+
+### Example syntax
+```
+takeoff(10)
+until battery < 20 {
+  goto(A); goto(B); goto(C)
+}
+rtl()
+
+on obstacle -> { hover(); alert() }
+
+try { goto(target) } else { rtl() }
+
+parallel {
+  record()
+  patrol([A, B, C])
+}
+```
+
+## Execution Model
+- Trivial single calls (`status`, `emergency_stop`, `actions` etc.) can remain as direct tools.
+-
+
+## Skills as Compressed Macros (key design)
+A **skill** is a named, saved DSL snippet.
+
+## Deliverables
+1. DSL grammar (document it).
+2. Lenient tokenizer + parser → AST.
+3. Interpreter that executes AST, dispatching to existing action layer.
+4. Skill store (create, list, expand, delete).
+5. `execute(script)` tool + `define_skill(...)` tool.
+6. Unit tests covering each primitive + skill expansion + recursion guard.
+
+## Non-Goals (do NOT build yet)
+- Skill retrieval/embeddings (we'll enumerate for now)
+- LLM repair pass on parse errors
+- Plugin system (assume actions are registered as today)
+- Visual/graphical tooling
+
+## Principles
+- **Simple beats clever.** If a primitive can be expressed by combining others, drop it.
+- **Token-efficient in, token-efficient out.** Terse DSL > verbose JSON.
+- **Forgive the AI.** Parsers should be lenient; errors should be actionable.
+- **Open-source friendly.** Clear code, minimal deps, readable over fancy, but performative on cpu and memmory.
+
+Start by proposing the grammar and AST shape before writing the parser. I want to review the design before implementation.
