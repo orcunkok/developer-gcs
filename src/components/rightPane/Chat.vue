@@ -1,16 +1,22 @@
 <script setup>
 import { ref, markRaw, nextTick, useTemplateRef, onMounted, onUnmounted } from "vue";
-import { Wrench, Send, Check, X, Timer } from "lucide-vue-next";
+import { Wrench, Send } from "lucide-vue-next";
 import { runCommander, onRun } from "../../ai/commander.js";
 
 const input = ref("");
-const busy = ref(false);
 const messages = ref([]);
 const scroller = useTemplateRef("scroller");
+const byRunId = new Map();
+const now = ref(Date.now());
+let tickHandle;
 
-let nextId = 0;
+function cronRemaining(firesAt) {
+  return Math.max(0, Math.ceil((firesAt - now.value) / 1000));
+}
+
+let nextMsgId = 0;
 function push(msg) {
-  msg.id = nextId++;
+  msg.id = nextMsgId++;
   if (msg.tools) for (const t of msg.tools) t._title = JSON.stringify({ args: t.args, result: t.result });
   if (msg.results) for (const r of msg.results) r._title = JSON.stringify(r.params);
   messages.value.push(markRaw(msg));
@@ -18,14 +24,12 @@ function push(msg) {
 }
 push({ role: "system", text: "AI commander ready." });
 
-async function submit() {
+function submit() {
   const goal = input.value.trim();
-  if (!goal || busy.value) return;
+  if (!goal) return;
   push({ role: "user", text: goal });
   input.value = "";
-  busy.value = true;
-  await runCommander(goal);
-  busy.value = false;
+  runCommander(goal);
 }
 
 function onKeydown(e) {
@@ -34,14 +38,30 @@ function onKeydown(e) {
 
 let unsub;
 onMounted(() => {
-  unsub = onRun(({ source, goal, text, tools, results, error }) => {
-    if (error) return push({ role: "error", text: error, tools, results });
-    const role = source === "user" ? "assistant" : "cron";
-    const prefix = source === "user" ? "" : `⏱ ${source} ${goal} — `;
-    push({ role, text: prefix + (text || ""), tools, results });
+  tickHandle = setInterval(() => { now.value = Date.now(); }, 500);
+  unsub = onRun(({ id, source, text, tools, results, error }) => {
+    const role = "assistant";
+
+    if (error) { push({ role: "error", text: error, tools, results }); return; }
+
+    const existing = byRunId.get(id);
+    if (!existing) {
+      // First emit — plan arrived, show immediately (results pending).
+      const actionNames = results?.length ? results.map((r) => r.name).join(" ") : "";
+      const msgText = source === "user" ? (text || "") : `${source} ${actionNames}`.trim();
+      const msg = { role, text: msgText, tools, results };
+      push(msg);
+      byRunId.set(id, msg);
+    } else {
+      // Second emit — sequencer done, update results.
+      if (results) for (const r of results) r._title = JSON.stringify(r.params);
+      const idx = messages.value.indexOf(existing);
+      if (idx !== -1) messages.value[idx] = markRaw({ ...existing, results });
+      byRunId.delete(id);
+    }
   });
 });
-onUnmounted(() => unsub?.());
+onUnmounted(() => { unsub?.(); clearInterval(tickHandle); });
 </script>
 
 <template>
@@ -51,19 +71,21 @@ onUnmounted(() => unsub?.());
       <div v-for="m in messages" :key="m.id" class="msg" :data-role="m.role">
         <div v-if="m.text">{{ m.text }}</div>
         <ul v-if="m.tools?.length || m.results?.length" class="msg__steps">
-          <li v-for="(t, j) in m.tools" :key="`t${j}`" class="step" :class="t.tool === 'cron' ? 'step--cron' : 'step--tool'" :title="t._title">
-            <component :is="t.tool === 'cron' ? Timer : Wrench" :size="12" /> {{ t.tool }}
+          <li v-for="(t, j) in m.tools" :key="`t${j}`" class="step step--tool"
+              :class="{ 'step--pending': t.tool === 'cron' && t.result?.firesAt > now, 'step--error': !!t.error }"
+              :title="t._title">
+            <component v-if="t.tool !== 'cron'" :is="Wrench" :size="12" />
+            {{ t.tool === 'cron' && t.result?.firesAt ? `${cronRemaining(t.result.firesAt)}s cron` : t.tool }}
           </li>
           <li v-for="(r, j) in m.results" :key="`a${j}`" class="step step--action"
-              :data-ok="r.ok" :title="r._title">
+              :class="{ 'step--pending': r.ok == null, 'step--ok': r.ok === true, 'step--error': r.ok === false }"
+              :title="r._title">
             <Send :size="12" /> {{ r.name }}
-            <component :is="r.ok ? Check : X" :size="12" />
           </li>
         </ul>
       </div>
-      <div v-if="busy" class="msg" data-role="thinking">thinking…</div>
     </div>
-    <textarea v-model="input" class="chat__input" :disabled="busy"
+    <textarea v-model="input" class="chat__input"
               placeholder="Tell the drone what to do. Enter to send."
               @keydown="onKeydown" />
   </section>
@@ -86,14 +108,17 @@ onUnmounted(() => unsub?.());
   text-align: right;
   font-weight: bold;
 }
-.msg[data-role="error"] { color: #b00020; }
-.msg[data-role="thinking"] { opacity: 0.6; font-style: italic; }
-.msg[data-role="cron"] { color: #5a3a99; }
+.msg[data-role="error"] { color: var(--color-action); }
 .msg__steps { list-style: none; margin: 4px 0 0; padding: 0; }
-.step { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; }
-.step--tool { color: #5a3a99; }
-.step--cron { color: #b8731f; }
-.step--action[data-ok="true"] { color: #1f6f3a; }
-.step--action[data-ok="false"] { color: #b00020; }
+.step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  color: var(--text-secondary);
+}
+.step--ok { color: var(--color-nominal); }
+.step--error { color: var(--color-action); }
+.step--pending { color: var(--text-secondary); }
 .chat__input { min-height: 80px; resize: none; border: 1px solid var(--border); padding: 6px; font: inherit; }
 </style>

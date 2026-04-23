@@ -1,10 +1,9 @@
-import { invokeAction } from "../actions.js";
 import { useTelemStore } from "../stores/telemStore.js";
 import { useEventLogStore } from "../stores/eventLogStore.js";
-import { RENDERED_PRIMITIVES, ackCommandFor } from "./primitives.js";
+import { RENDERED_PRIMITIVES, primitiveFor } from "./primitives.js";
 import { RENDERED_SKILLS } from "./skills.js";
-import { RENDERED_TOOLS, runTool } from "./tools.js";
-import { setRunner, activeCrons } from "./cron.js";
+import { RENDERED_TOOLS, runTool, setRunner, activeCrons } from "./tools.js";
+import { runSequence } from "./sequencer.js";
 
 const SYSTEM_PROMPT = `You are the AI commander for an ArduPilot aircraft.
 
@@ -30,8 +29,6 @@ Rules:
 - If the request is impossible with these primitives, return text only with actions: [].
 - Keep text short. No markdown.`;
 
-const ACK_TIMEOUT_MS = 1500;
-
 // MAVLink raw units → SI/human at the AI boundary.
 // Raw values are kept in stores per project rule; convert only at the consumer.
 function snapshot() {
@@ -56,21 +53,14 @@ function snapshot() {
   };
 }
 
-function waitForAck(ackCommand, sentAt) {
-  if (!ackCommand) return Promise.resolve(null);
-  const e = useEventLogStore();
-  const deadline = sentAt + ACK_TIMEOUT_MS;
-  return new Promise((resolve) => {
-    const tick = () => {
-      const events = e.recentEvents(Date.now() - sentAt + 100);
-      for (let i = events.length - 1; i >= 0 && events[i].t >= sentAt; i--) {
-        const ev = events[i];
-        if (ev.type === "COMMAND_ACK" && ev.data?.command === ackCommand) return resolve(ev.data);
-      }
-      Date.now() >= deadline ? resolve(null) : setTimeout(tick, 50);
-    };
-    tick();
-  });
+// Lightweight telem read for done() polling — no event log scanning.
+function liveState() {
+  const t = useTelemStore();
+  return {
+    armed: t.armed,
+    mode: t.mode,
+    position: t.lat == null ? null : { lat: t.lat * 1e-7, lon: t.lon * 1e-7, altAGL_m: t.altAGL * 1e-3 },
+  };
 }
 
 async function callLLM(goal, context) {
@@ -92,7 +82,9 @@ async function callLLM(goal, context) {
   });
   if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
   const { choices } = await res.json();
-  return JSON.parse(choices[0].message.content);
+  const raw = choices?.[0]?.message?.content ?? "";
+  const parsed = JSON.parse(raw);
+  return { model, raw, parsed };
 }
 
 // Resolve "$name.field" strings inside params using the let-bindings.
@@ -123,34 +115,35 @@ function resolveGoalTemplate(str, b) {
   });
 }
 
-function argsForTool(tool, args, bindings) {
-  let a = resolve(args, bindings);
-  if (tool === "cron" && typeof a.goal === "string")
-    a = { ...a, goal: resolveGoalTemplate(a.goal, bindings) };
-  return a;
-}
-
 const runListeners = new Set();
 export function onRun(fn) { runListeners.add(fn); return () => runListeners.delete(fn); }
 function emit(payload) { for (const fn of runListeners) fn(payload); }
 
+let runId = 0;
+
 export async function runCommander(goal, source = "user") {
+  const id = ++runId;
   const e = useEventLogStore();
   let ctx, plan;
   try {
     ctx = snapshot();
-    plan = await callLLM(goal, ctx);
+    const llm = await callLLM(goal, ctx);
+    plan = llm.parsed;
+    console.log("[ai] response", { id, source, goal, model: llm.model, raw: llm.raw, plan }); // for debugging only
   } catch (err) {
-    emit({ goal, source, text: "", tools: [], results: [], error: err?.message || String(err) });
+    console.error("[ai] response error", { id, source, goal, error: err?.message || String(err) }); // for debugging only
+    emit({ id, goal, source, text: "", tools: [], results: [], error: err?.message || String(err) });
     return;
   }
 
   const tools = [];
   const bindings = {};
-  for (const [name, { tool, args = {} }] of Object.entries(plan.let ?? {})) {
+  for (const [name, { tool, args = {} }] of Object.entries(plan.let && typeof plan.let === "object" ? plan.let : {})) {
     let resolvedArgs;
     try {
-      resolvedArgs = argsForTool(tool, args, bindings);
+      resolvedArgs = resolve(args, bindings);
+      if (tool === "cron" && typeof resolvedArgs.goal === "string")
+        resolvedArgs = { ...resolvedArgs, goal: resolveGoalTemplate(resolvedArgs.goal, bindings) };
       const result = runTool(tool, resolvedArgs, ctx);
       bindings[name] = result;
       tools.push({ name, tool, args: resolvedArgs, result });
@@ -159,7 +152,7 @@ export async function runCommander(goal, source = "user") {
       const msg = `${tool}(${JSON.stringify(resolvedArgs ?? args)}): ${err.message}`;
       tools.push({ name, tool, args: resolvedArgs ?? args, error: err.message });
       e.addEvent("AI_ERROR", { tool, args: resolvedArgs ?? args, error: err.message });
-      emit({ goal, source, text: plan.text || "", tools, results: [], error: msg });
+      emit({ id, goal, source, text: plan.text || "", tools, results: [], error: msg });
       return;
     }
   }
@@ -170,21 +163,18 @@ export async function runCommander(goal, source = "user") {
   }));
   e.addEvent("AI_PLAN", { goal, text: plan.text, bindings, actions });
 
-  const results = [];
-  for (const a of actions) {
-    const sentAt = Date.now();
-    let { ok, error } = invokeAction(a.name, a.params);
-    if (ok) {
-      const ack = await waitForAck(ackCommandFor(a.name), sentAt);
-      if (ack && ack.result !== "ACCEPTED") { ok = false; error = `${ack.command} ${ack.result}`; }
-    }
-    const r = { name: a.name, params: a.params, ok, error };
-    results.push(r);
-    e.addEvent("AI_ACTION", r);
-    if (!ok) { e.addEvent("AI_ERROR", { name: a.name, error }); break; }
-  }
+  // Emit immediately after LLM responds — actions shown as pending (ok: null).
+  const pending = actions.map((a) => ({ name: a.name, params: a.params, ok: null }));
+  emit({ id, goal, source, text: plan.text || "", tools, results: pending });
 
-  emit({ goal, source, text: plan.text || "", tools, results });
+  const steps = actions.map((a) => {
+    const prim = primitiveFor(a.name) ?? {};
+    return { name: a.name, params: a.params, ackCommand: prim.ackCommand, done: prim.done, doneTimeoutSec: prim.doneTimeoutSec };
+  });
+  const results = await runSequence(steps, liveState);
+
+  // Emit again with results so chat can update the same message.
+  emit({ id, goal, source, text: plan.text || "", tools, results });
 }
 
 setRunner(runCommander);
