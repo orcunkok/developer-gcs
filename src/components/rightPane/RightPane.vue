@@ -1,10 +1,6 @@
-<script setup>
-import Chat from "./Chat.vue";
-</script>
-
 <template>
   <aside class="right-pane">
-    <Chat />
+    <span>right pane</span>
   </aside>
 </template>
 
@@ -14,8 +10,6 @@ import Chat from "./Chat.vue";
   width: var(--right-pane-width);
   border-left: 1px solid var(--border);
   background: #b0e0e6;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
   padding: 8px;
 }

@@ -1,6 +1,4 @@
 <script setup>
-import { Menu } from 'lucide-vue-next'
-
 defineProps({
   open: Boolean
 })
