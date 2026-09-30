@@ -7,6 +7,7 @@ const wrapper = ref(null);
 const ctxMenu = ref({ show: false, x: 0, y: 0 });
 let map = null;
 
+// for debugging only — menu items are placeholders, they only close the menu
 function closeMenu() {
     ctxMenu.value.show = false;
 }
@@ -22,11 +23,6 @@ function onRightClick(e) {
     requestAnimationFrame(() =>
         document.addEventListener("pointerdown", closeMenu, { once: true }),
     );
-}
-
-// for debugging only — placeholder, menu items do nothing yet
-function ctxAction(_actionName) {
-    closeMenu();
 }
 
 onMounted(() => {
@@ -64,9 +60,9 @@ onUnmounted(() => {
             :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
             @pointerdown.stop
         >
-            <button @click="ctxAction('add-waypoint')">Add Waypoint</button>
-            <button @click="ctxAction('drop-marker')">Drop Marker</button>
-            <button @click="ctxAction('measure')">Measure Distance</button>
+            <button @click="closeMenu">Add Waypoint</button>
+            <button @click="closeMenu">Drop Marker</button>
+            <button @click="closeMenu">Measure Distance</button>
         </div>
     </div>
 </template>

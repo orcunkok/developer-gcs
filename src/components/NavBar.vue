@@ -7,13 +7,11 @@ defineEmits(['close'])
 </script>
 
 <template>
-  <Transition name="navbar">
     <div v-if="open" class="navbar-backdrop" @click="$emit('close')">
       <nav class="navbar" @click.stop>
         <span class="navbar__label">navbar</span>
       </nav>
     </div>
-  </Transition>
 </template>
 
 <style scoped>
@@ -45,13 +43,4 @@ defineEmits(['close'])
   letter-spacing: 0.04em;
 }
 
-.navbar-enter-active,
-.navbar-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.navbar-enter-from,
-.navbar-leave-to {
-  opacity: 0;
-}
 </style>

@@ -47,6 +47,10 @@ defineEmits(['toggle-navbar'])
   padding: 0;
 }
 
+.status-bar__menu-btn:focus-visible {
+  outline: none;
+}
+
 .status-bar__menu-btn:hover {
   background: rgba(0, 0, 0, 0.08);
 }
