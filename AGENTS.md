@@ -31,7 +31,7 @@ Apply in order:
 
 - Use `lucide-vue-next` for icons.
 - Minimize CPU usage, memory consumption, and unnecessary rendering.
-- Define all colors, typography, and layout dimensions as global CSS variables in `src/style.css`; never hardcode them elsewhere.
+- Define all colors, typography, and layout dimensions as global CSS variables in `src/style.css`; never hardcode them elsewhere. Exception: map styles, colors and map CSS always live in `src/map/`.
 - No CSS animations or transitions unless explicitly requested.
 - Keep JSDoc typedefs in their owning files; no standalone type files.
 - Mark all placeholders and temporary code with the exact phrase `for debugging only`.
@@ -42,5 +42,5 @@ Bare layout shell; features are being rebuilt from scratch.
 
 - Layout: top Status Bar, Left Pane, center Primary Display (map), Right Pane, Bottom Strip.
 - NavBar overlay opens from the status bar menu button.
-- Panes are empty placeholders; the map has a right-click menu (currently disabled, code kept in `MapView.vue`).
+- Panes are empty placeholders.
 - Pane toggle shortcuts live in `src/App.vue`; see README.

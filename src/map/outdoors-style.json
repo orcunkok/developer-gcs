@@ -135,6 +135,33 @@
    }
   },
   {
+   "id": "hillshade",
+   "type": "hillshade",
+   "source": "dem",
+   "paint": {
+    "hillshade-exaggeration": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     0,
+     0.2,
+     10,
+     0.55,
+     15,
+     0.8
+    ],
+    "hillshade-shadow-color": "hsla(70, 45%, 18%, 0.75)",
+    "hillshade-accent-color": "hsla(60, 25%, 35%, 0.25)",
+    "hillshade-highlight-color": "hsla(60, 40%, 100%, 0.4)",
+    "hillshade-illumination-direction": 335,
+    "hillshade-illumination-anchor": "map"
+   }
+  },
+  {
    "id": "water",
    "type": "fill",
    "source": "openmaptiles",
@@ -299,6 +326,42 @@
      0,
      11,
      1
+    ]
+   }
+  },
+  {
+   "id": "contour",
+   "type": "line",
+   "source": "contours",
+   "source-layer": "contours",
+   "minzoom": 10,
+   "paint": {
+    "line-color": "hsla(40, 36%, 25%, 0.65)",
+    "line-opacity": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     9.5,
+     0,
+     11.5,
+     1
+    ],
+    "line-width": [
+     "case",
+     [
+      ">",
+      [
+       "get",
+       "level"
+      ],
+      0
+     ],
+     0.9,
+     0.4
     ]
    }
   },
@@ -2937,6 +3000,66 @@
      0.5,
      12,
      2
+    ]
+   }
+  },
+  {
+   "id": "contour-label",
+   "type": "symbol",
+   "source": "contours",
+   "source-layer": "contours",
+   "minzoom": 11,
+   "filter": [
+    ">",
+    [
+     "get",
+     "level"
+    ],
+    0
+   ],
+   "layout": {
+    "symbol-placement": "line",
+    "symbol-spacing": 300,
+    "text-field": [
+     "to-string",
+     [
+      "get",
+      "ele"
+     ]
+    ],
+    "text-font": [
+     "Noto Sans Regular"
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     12,
+     8,
+     18,
+     13
+    ]
+   },
+   "paint": {
+    "text-color": "hsl(40, 36%, 25%)",
+    "text-halo-color": "hsla(20, 20%, 100%, 0.6)",
+    "text-halo-width": 1,
+    "text-opacity": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     11.5,
+     0,
+     12,
+     1
     ]
    }
   },

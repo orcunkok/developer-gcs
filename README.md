@@ -29,4 +29,4 @@ The navbar is opened with the menu button in the status bar.
 
 ## Map
 
-The right-click context menu (Add Waypoint, Drop Marker, Measure Distance; placeholders) is disabled for now. The code is still in `src/map/MapView.vue`; see the comment above the wrapper to re-enable it.
+Right-drag rotates and tilts the map (custom handler in `src/map/MapView.vue`, no inertia). Map style, terrain and map CSS live in `src/map/`.
