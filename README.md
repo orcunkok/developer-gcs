@@ -1,6 +1,6 @@
 # developer-gcs
 
-Vue 3 + Vite + maptalks. Uses [bun](https://bun.sh).
+Vue 3 + Vite + maplibre-gl. Uses [bun](https://bun.sh).
 
 ## Install
 
@@ -20,12 +20,13 @@ bun run preview  # serve the production build
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+.` | Toggle right pane |
-| `Ctrl+,` | Toggle bottom strip |
+| `Ctrl+,` | Toggle left pane |
+| `Ctrl+.` | Toggle bottom strip |
+| `Ctrl+/` | Toggle right pane |
 | `Esc` | Close navbar |
 
 The navbar is opened with the menu button in the status bar.
 
 ## Map
 
-Right-click the map for the context menu: Add Waypoint, Drop Marker, Measure Distance. The items are placeholders and do nothing yet.
+The right-click context menu (Add Waypoint, Drop Marker, Measure Distance; placeholders) is disabled for now. The code is still in `src/map/MapView.vue`; see the comment above the wrapper to re-enable it.

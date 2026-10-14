@@ -1,5 +1,8 @@
 <script setup>
-import MapView from '../map/MapView.vue'
+import { defineAsyncComponent } from 'vue'
+
+// map code (maplibre, ~1 MB) loads in its own chunk so the layout paints first
+const MapView = defineAsyncComponent(() => import('../map/MapView.vue'))
 </script>
 
 <template>
@@ -10,10 +13,10 @@ import MapView from '../map/MapView.vue'
 
 <style scoped>
 .primary-display {
-  grid-area: primary;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   background: var(--bg);
-  min-width: 0;
-  min-height: 0;
   overflow: hidden;
 }
 </style>

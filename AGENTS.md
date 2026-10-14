@@ -1,6 +1,6 @@
 # Developer GCS
 
-Vue 3 + Vite + maptalks ground control station for swarm development.
+Vue 3 + Vite + maplibre-gl ground control station for swarm development.
 
 Build incrementally with the developer. Prioritize reliability, fast interaction, low CPU/memory usage, and clear human–machine interaction. Planned capabilities include simulation, logs, debugging, and settings; implement them only when requested.
 
@@ -42,5 +42,5 @@ Bare layout shell; features are being rebuilt from scratch.
 
 - Layout: top Status Bar, Left Pane, center Primary Display (map), Right Pane, Bottom Strip.
 - NavBar overlay opens from the status bar menu button.
-- Panes are empty placeholders; the map has a right-click menu.
+- Panes are empty placeholders; the map has a right-click menu (currently disabled, code kept in `MapView.vue`).
 - Pane toggle shortcuts live in `src/App.vue`; see README.

@@ -7,18 +7,23 @@ import PrimaryDisplay from './components/PrimaryDisplay.vue'
 import RightPane from './components/rightPane/RightPane.vue'
 import BottomStrip from './components/BottomStrip.vue'
 
-const rightPaneOpen = ref(true)
-const bottomStripOpen = ref(true)
+const leftPaneOpen = ref(false)
+const rightPaneOpen = ref(false)
+const bottomStripOpen = ref(false)
 const navbarOpen = ref(false)
 
 function handleKeydown(e) {
-  if (e.ctrlKey && e.key === '.') {
-    e.preventDefault()
-    rightPaneOpen.value = !rightPaneOpen.value
-  }
   if (e.ctrlKey && e.key === ',') {
     e.preventDefault()
+    leftPaneOpen.value = !leftPaneOpen.value
+  }
+  if (e.ctrlKey && e.key === '.') {
+    e.preventDefault()
     bottomStripOpen.value = !bottomStripOpen.value
+  }
+  if (e.ctrlKey && e.key === '/') {
+    e.preventDefault()
+    rightPaneOpen.value = !rightPaneOpen.value
   }
   if (e.key === 'Escape' && navbarOpen.value) {
     navbarOpen.value = false
@@ -30,50 +35,53 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'right-collapsed': !rightPaneOpen, 'bottom-collapsed': !bottomStripOpen }">
+  <PrimaryDisplay />
+  <div
+    class="app-shell"
+    :class="{ 'left-collapsed': !leftPaneOpen, 'right-collapsed': !rightPaneOpen, 'bottom-collapsed': !bottomStripOpen }"
+  >
     <StatusBar :navbarOpen="navbarOpen" @toggle-navbar="navbarOpen = !navbarOpen" />
-    <LeftPane />
+    <LeftPane v-if="leftPaneOpen" />
     <NavBar :open="navbarOpen" @close="navbarOpen = false" />
-    <PrimaryDisplay />
     <RightPane v-if="rightPaneOpen" />
     <BottomStrip v-if="bottomStripOpen" />
   </div>
 </template>
 
 <style scoped>
+/* Overlay above the map layer; empty middle cell passes pointer events to the map. */
 .app-shell {
-  width: 100vw;
-  height: 100vh;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   display: grid;
   grid-template-areas:
-    "topbar  topbar   topbar"
-    "left    primary  right"
-    "bottom  bottom   bottom";
+    "topbar topbar topbar"
+    "left   .      right"
+    "bottom bottom bottom";
   grid-template-columns: var(--left-pane-width) 1fr var(--right-pane-width);
   grid-template-rows: var(--topbar-height) 1fr var(--bottom-strip-height);
   overflow: hidden;
+  pointer-events: none;
+}
+
+.app-shell > * {
+  pointer-events: auto;
+}
+
+.app-shell.left-collapsed {
+  grid-template-columns: 0 1fr var(--right-pane-width);
 }
 
 .app-shell.right-collapsed {
-  grid-template-areas:
-    "topbar  topbar"
-    "left    primary"
-    "bottom  bottom";
-  grid-template-columns: var(--left-pane-width) 1fr;
+  grid-template-columns: var(--left-pane-width) 1fr 0;
+}
+
+.app-shell.left-collapsed.right-collapsed {
+  grid-template-columns: 0 1fr 0;
 }
 
 .app-shell.bottom-collapsed {
-  grid-template-areas:
-    "topbar  topbar   topbar"
-    "left    primary  right";
-  grid-template-rows: var(--topbar-height) 1fr;
-}
-
-.app-shell.right-collapsed.bottom-collapsed {
-  grid-template-areas:
-    "topbar  topbar"
-    "left    primary";
-  grid-template-columns: var(--left-pane-width) 1fr;
-  grid-template-rows: var(--topbar-height) 1fr;
+  grid-template-rows: var(--topbar-height) 1fr 0;
 }
 </style>

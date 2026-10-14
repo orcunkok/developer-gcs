@@ -1,0 +1,17 @@
+What changed
+- src/map/outdoors-style.json is the new style: 31 layers in a plain MapLibre style, 3D left out.
+  - I took Standard's color formulas and resolved them with your config (greenspace, water, land, commercial, trunks, roads, admin, POI colors).
+  - Road widths and zoom ramps are copied from Standard.
+  - It has land, landcover and landuse, water, aeroways, 2D buildings, roads (tunnel, ground and bridge, with casings), rail, admin boundaries, and place, road, water and POI labels.
+- maptalks is gone. MapView.vue now uses maplibre-gl, since maptalks can't render vector styles. I removed the maptalks dependency and updated main.js and the docs. The camera options and the right-click menu are unchanged.
+- vite.config.js: I added optimizeDeps.exclude: ['maplibre-gl']. Without it the dev server fails with "Worker failed to load".
+- Tiles: they come from OpenFreeMap (tiles.openfreemap.org), which needs no token, and it also serves the fonts. A self-hosted .pmtiles file would only mean changing the sources URL, as long as it uses the OpenMapTiles schema.
+
+What's different from the real Outdoors
+- Contours and hillshade: your mapbox.json had them, but they need elevation data. I left them out for now.
+- Color grading: Mapbox applies the embedded color-grading image at runtime. It can't be ported, so colors are the configured values only.
+- Trails: footpaths and pedestrian roads are hidden, because your config sets showPedestrianRoads: false.
+- Icons: none, because there's no sprite. POIs are text only, and their density is a rough rank-by-zoom stand-in.
+- Font: Noto Sans instead of Roboto Medium.
+- Attribution: the attribution control is off, as before. OSM and OpenFreeMap require visible credit, so add it before this goes anywhere public.
+- Style colors: the sty not in src/style.css,because a MapLibre st

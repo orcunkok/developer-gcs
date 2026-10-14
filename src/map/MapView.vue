@@ -1,11 +1,69 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
-import * as maptalks from "maptalks";
+import { Map as MapLibreMap } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import baseStyle from "./outdoors-style.json";
+import { withTerrain } from "./terrain.js";
 
 const container = ref(null);
 const wrapper = ref(null);
 const ctxMenu = ref({ show: false, x: 0, y: 0 });
 let map = null;
+
+// MapLibre's built-in right-drag rotate is fixed at 0.8°/px bearing and 0.5°/px pitch (too twitchy),
+// so rotation is handled here with adjustable sensitivity.
+const BEARING_DEG_PER_PX = 0.25;
+const PITCH_DEG_PER_PX = 0.15;
+
+// MapLibre has no pitch expression, so street names are toggled from the pitch event
+const STREET_NAMES_MAX_PITCH = 75;
+
+function hideStreetNamesWhenTilted() {
+    let hidden = false;
+    map.on("pitch", () => {
+        const tilted = map.getPitch() > STREET_NAMES_MAX_PITCH;
+        if (tilted === hidden || !map.isStyleLoaded()) return;
+        hidden = tilted;
+        map.setLayoutProperty("road-label", "visibility", tilted ? "none" : "visible");
+    });
+}
+
+function enableSlowRightDragRotate(el) {
+    let start = null; // pointer + camera at drag start
+    let last = null; // latest pointer position, applied at most once per frame
+    let frame = 0;
+
+    const apply = () => {
+        frame = 0;
+        if (!map || !start) return;
+        map.jumpTo({
+            bearing: start.bearing + (last.x - start.x) * BEARING_DEG_PER_PX,
+            pitch: start.pitch - (last.y - start.y) * PITCH_DEG_PER_PX,
+        });
+    };
+    const onMove = (e) => {
+        last = { x: e.clientX, y: e.clientY };
+        frame ||= requestAnimationFrame(apply);
+    };
+    const end = () => {
+        if (frame) {
+            cancelAnimationFrame(frame);
+            apply();
+        }
+        start = null;
+        el.removeEventListener("pointermove", onMove);
+    };
+
+    el.addEventListener("pointerdown", (e) => {
+        if (e.button !== 2) return;
+        el.setPointerCapture(e.pointerId);
+        start = { x: e.clientX, y: e.clientY, bearing: map.getBearing(), pitch: map.getPitch() };
+        last = start;
+        el.addEventListener("pointermove", onMove);
+    });
+    el.addEventListener("pointerup", (e) => e.button === 2 && end());
+    el.addEventListener("pointercancel", end);
+}
 
 // for debugging only — menu items are placeholders, they only close the menu
 function closeMenu() {
@@ -26,20 +84,21 @@ function onRightClick(e) {
 }
 
 onMounted(() => {
-    map = new maptalks.Map(container.value, {
-        center: [149.16523, -35.363261], // for debugging only
-        zoom: 16,
-        pitch: 45,
+    map = new MapLibreMap({
+        container: container.value,
+        style: withTerrain(baseStyle),
+        center: [-121.6815865, 37.1730398], // SCCMAS (ArduPilot locations.txt), for debugging only
+        zoom: 15,
+        pitch: 75,
+        bearing: 270,
+        maxPitch: 89, // 5° above the horizon, street-view style
         minZoom: 2,
         maxZoom: 19,
-        zoomControl: false,
-        attribution: false,
-        baseLayer: new maptalks.TileLayer("osm", {
-            urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-            attribution:
-                '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-        }),
+        attributionControl: false,
+        dragRotate: false,
     });
+    enableSlowRightDragRotate(container.value);
+    hideStreetNamesWhenTilted();
 });
 
 onUnmounted(() => {
@@ -52,7 +111,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div ref="wrapper" class="map-wrapper" @contextmenu.prevent="onRightClick">
+    <!-- right-click menu disabled for now: re-add @contextmenu.prevent="onRightClick" here -->
+    <div ref="wrapper" class="map-wrapper" @contextmenu.prevent>
         <div ref="container" class="map-container"></div>
         <div
             v-if="ctxMenu.show"
@@ -80,7 +140,8 @@ onUnmounted(() => {
     cursor: crosshair !important;
 }
 
-.map-container :deep(*) {
+.map-container :deep(.maplibregl-canvas-container),
+.map-container :deep(.maplibregl-canvas) {
     cursor: crosshair !important;
 }
 
