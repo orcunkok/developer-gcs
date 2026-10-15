@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted } from "vue";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // Scene colors live here, like map colors live in src/views/map/.
 const COLORS = {
@@ -14,7 +14,7 @@ const COLORS = {
     hemiSky: "#dfe8f2",
     hemiGround: "#8a8f96",
     sun: "#fff4e6",
-    block: "#e07a3f",
+    north: "#4a5562",
 };
 
 // World frame is NED: +X north, +Y east, +Z down (floor at z = 0, altitude = -z).
@@ -22,6 +22,18 @@ const UP = new THREE.Vector3(0, 0, -1);
 
 const FLOOR_SIZE = 200; // m
 const CELL_SIZE = 1; // m per checker square
+
+// URLs of every .glb under /assets
+const MODEL_URLS = Object.values(import.meta.glob("/assets/*.glb", { query: "?url", import: "default", eager: true }));
+const MODEL_SIZE = 0.6; // m, longest side after scaling
+const MODEL_SPACING = 1; // m between model centers, along east
+const MODEL_ALTITUDE = 1.5; // m
+// glTF models face +Z with +Y up (+X left); map that to NED: forward -> north, up -> up, left -> west
+const GLTF_TO_NED = new THREE.Quaternion().setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(1, 0, 0)),
+);
+const NORTH_MARKER_SIZE = 1.6; // m
+const NORTH_MARKER_DISTANCE = 4; // m north of the origin
 
 const container = ref(null);
 let renderer, scene, camera, controls, resizeObserver;
@@ -93,6 +105,52 @@ function createFloor(maxAnisotropy) {
     return floor;
 }
 
+// chevron + "N" painted flat on the floor, pointing north (+X)
+function createNorthMarker(maxAnisotropy) {
+    const px = 256;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = px;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = COLORS.north;
+    ctx.beginPath(); // chevron, tip at the top (north)
+    ctx.moveTo(px * 0.5, px * 0.04);
+    ctx.lineTo(px * 0.8, px * 0.36);
+    ctx.lineTo(px * 0.5, px * 0.26);
+    ctx.lineTo(px * 0.2, px * 0.36);
+    ctx.closePath();
+    ctx.fill();
+    const fontFamily = getComputedStyle(document.documentElement).getPropertyValue("--font-sans");
+    ctx.font = `600 ${px * 0.48}px ${fontFamily}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("N", px * 0.5, px * 0.7);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = maxAnisotropy;
+
+    const marker = new THREE.Mesh(
+        new THREE.PlaneGeometry(NORTH_MARKER_SIZE, NORTH_MARKER_SIZE),
+        new THREE.MeshStandardMaterial({
+            map: texture,
+            transparent: true,
+            opacity: 0.55,
+            depthWrite: false,
+            roughness: 0.9,
+            metalness: 0,
+            polygonOffset: true, // sits on the floor without z-fighting
+            polygonOffsetFactor: -1,
+        }),
+    );
+    // texture right -> east (+Y), texture up -> north (+X), face up (-Z)
+    marker.quaternion.setFromRotationMatrix(
+        new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -1)),
+    );
+    marker.position.set(NORTH_MARKER_DISTANCE, 0, 0);
+    marker.receiveShadow = true;
+    return marker;
+}
+
 function createLights() {
     const hemi = new THREE.HemisphereLight(COLORS.hemiSky, COLORS.hemiGround, 1.2);
     hemi.position.copy(UP); // hemisphere light's sky direction is its position
@@ -111,15 +169,25 @@ function createLights() {
     return [hemi, sun];
 }
 
-// stand-in for the drone GLB, for debugging only
-function createBlock() {
-    const block = new THREE.Mesh(
-        new RoundedBoxGeometry(0.6, 0.6, 0.15, 4, 0.03),
-        new THREE.MeshStandardMaterial({ color: COLORS.block, roughness: 0.45, metalness: 0.1 }),
-    );
-    block.position.set(0, 0, -1.5); // NED: 1.5 m altitude
-    block.castShadow = true;
-    return block;
+// loads each model, scales it to MODEL_SIZE and lines them up side by side along east, centered on the origin
+function loadModels() {
+    const loader = new GLTFLoader();
+    MODEL_URLS.forEach((url, i) => {
+        loader.load(url, ({ scene: model }) => {
+            if (!scene) return; // unmounted while loading
+            model.quaternion.copy(GLTF_TO_NED);
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            model.scale.setScalar(MODEL_SIZE / Math.max(size.x, size.y, size.z));
+            box.setFromObject(model);
+            const east = (i - (MODEL_URLS.length - 1) / 2) * MODEL_SPACING;
+            model.position.sub(box.getCenter(new THREE.Vector3())).add(new THREE.Vector3(0, east, -MODEL_ALTITUDE));
+            model.traverse((obj) => (obj.castShadow = obj.isMesh));
+            scene.add(model);
+            renderer.shadowMap.needsUpdate = true;
+            requestRender();
+        });
+    });
 }
 
 onMounted(() => {
@@ -144,19 +212,19 @@ onMounted(() => {
     scene.environmentIntensity = 0.35;
     pmrem.dispose();
 
-    scene.add(createSky(), createFloor(renderer.capabilities.getMaxAnisotropy()), ...createLights());
-    const block = createBlock();
-    scene.add(block);
+    const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+    scene.add(createSky(), createFloor(maxAnisotropy), createNorthMarker(maxAnisotropy), ...createLights());
+    loadModels();
 
     camera = new THREE.PerspectiveCamera(50, 1, 0.05, FLOOR_SIZE * 2);
     camera.up.copy(UP);
-    camera.position.set(-5, -4, -3); // south-west of the block, 3 m up
+    camera.position.set(-5, -4, -3); // south-west of the models, 3 m up
 
     // right-drag orbit (like the map), left-drag pan, wheel zoom; no damping so nothing moves after release
     controls = new OrbitControls(camera, renderer.domElement);
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     controls.cursorStyle = "grab"; // grab at rest, grabbing while dragging any button
-    controls.target.copy(block.position);
+    controls.target.set(0, 0, -MODEL_ALTITUDE);
     controls.maxPolarAngle = Math.PI / 2 - 0.02; // stay above the floor
     controls.minDistance = 0.5;
     controls.maxDistance = 80;
@@ -181,8 +249,10 @@ onUnmounted(() => {
     controls?.dispose();
     scene?.traverse((obj) => {
         obj.geometry?.dispose();
-        obj.material?.map?.dispose();
-        obj.material?.dispose();
+        for (const material of [obj.material ?? []].flat()) {
+            for (const value of Object.values(material)) if (value?.isTexture) value.dispose();
+            material.dispose();
+        }
     });
     scene?.environment?.dispose();
     renderer?.dispose();
