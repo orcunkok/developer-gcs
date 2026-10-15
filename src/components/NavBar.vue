@@ -28,8 +28,8 @@ defineEmits(['close'])
   left: 0;
   width: var(--left-pane-width);
   height: 100%;
-  background: #2a2a3a;
-  border-right: 1px solid var(--border);
+  background: var(--color-navbar-bg);
+  border-right: var(--border-width) solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -37,10 +37,10 @@ defineEmits(['close'])
 }
 
 .navbar__label {
-  color: #f0f0f0;
+  color: var(--text-inverse);
   font-family: var(--font-sans);
-  font-size: 13px;
-  letter-spacing: 0.04em;
+  font-size: var(--font-size-label);
+  letter-spacing: var(--letter-spacing-label);
 }
 
 </style>

@@ -43,8 +43,8 @@ const layouts = [
 .status-bar {
   grid-area: topbar;
   height: var(--topbar-height);
-  background: #e6e6fa;
-  border-bottom: 1px solid var(--border);
+  background: var(--color-status-bar-bg);
+  border-bottom: var(--border-width) solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -53,37 +53,33 @@ const layouts = [
 
 .status-bar__menu-btn {
   position: absolute;
-  left: 8px;
+  left: var(--icon-btn-inset);
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--icon-btn-size);
+  height: var(--icon-btn-size);
   background: none;
   border: none;
   cursor: pointer;
-  color: #1a1a1a;
-  border-radius: 4px;
+  color: var(--text);
+  border-radius: var(--icon-btn-radius);
   padding: 0;
 }
 
-.status-bar__menu-btn:focus-visible {
-  outline: none;
-}
-
 .status-bar__menu-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--color-select-hover);
 }
 
 .status-bar__menu-btn.active {
-  background: rgba(0, 0, 0, 0.12);
+  background: var(--color-select-active);
 }
 
 .status-bar__layout-btn {
   left: auto;
-  right: 8px;
+  right: var(--icon-btn-inset);
 }
 
 .status-bar__layout-bar {
@@ -97,8 +93,8 @@ const layouts = [
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--layout-btn-size);
-  height: var(--layout-btn-size);
+  width: var(--icon-btn-size);
+  height: var(--icon-btn-size);
   background: var(--color-picker-bg);
   color: var(--text);
   border: none;
@@ -112,8 +108,8 @@ const layouts = [
 }
 
 .status-bar__label {
-  font-family: var(--font-mono, monospace);
-  font-size: 12px;
-  color: #1a1a1a;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-label-sm);
+  color: var(--text);
 }
 </style>

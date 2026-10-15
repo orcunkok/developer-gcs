@@ -1,25 +1,24 @@
 <script setup>
-defineProps({
-  name: { type: String, default: "" },
-});
+// MFD-style "no signal" X: empty cells (no name) and placeholder views (with name)
+defineProps({ name: String });
 </script>
 
 <template>
-  <div class="mfd-cross">
+  <div class="placeholder-view">
     <svg viewBox="0 0 100 100" preserveAspectRatio="none">
       <line x1="0" y1="0" x2="100" y2="100" />
       <line x1="100" y1="0" x2="0" y2="100" />
     </svg>
-    <span v-if="name" class="mfd-name">{{ name }}</span>
+    <span v-if="name" class="placeholder-view__name">{{ name }}</span>
   </div>
 </template>
 
 <style scoped>
-.mfd-cross {
+.placeholder-view {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: var(--color-mfd-cross-bg);
+  background: var(--color-placeholder-bg);
 }
 svg {
   width: 100%;
@@ -27,20 +26,20 @@ svg {
   display: block;
 }
 line {
-  stroke: var(--color-mfd-cross);
+  stroke: var(--color-placeholder-line);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
-.mfd-name {
+.placeholder-view__name {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: var(--color-mfd-cross-bg);
+  background: var(--color-placeholder-bg);
   font-family: var(--font-mono);
   font-size: var(--font-size-view-label);
   font-weight: bold;
-  color: var(--color-mfd-cross);
+  color: var(--color-placeholder-line);
   text-transform: uppercase;
 }
 </style>

@@ -8,17 +8,17 @@
 .bottom-strip {
   grid-area: bottom;
   height: var(--bottom-strip-height);
-  background: #fffacd;
-  border-top: 1px solid var(--border);
+  background: var(--color-bottom-strip-bg);
+  border-top: var(--border-width) solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .bottom-strip__label {
-  color: #1a1a1a;
+  color: var(--text);
   font-family: var(--font-sans);
-  font-size: 13px;
-  letter-spacing: 0.04em;
+  font-size: var(--font-size-label);
+  letter-spacing: var(--letter-spacing-label);
 }
 </style>

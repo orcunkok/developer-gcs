@@ -130,6 +130,9 @@ onMounted(() => {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap; // PCFSoftShadowMap was removed in r18x; radius softens instead
+    // shadows depend on the light and objects, not the camera: draw them once, set needsUpdate when objects move
+    renderer.shadowMap.autoUpdate = false;
+    renderer.shadowMap.needsUpdate = true;
     el.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();

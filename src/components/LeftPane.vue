@@ -8,9 +8,9 @@
 .left-pane {
   grid-area: left;
   width: var(--left-pane-width);
-  background: #f5fffa;
-  border-right: 1px solid var(--border);
+  background: var(--color-left-pane-bg);
+  border-right: var(--border-width) solid var(--border);
   overflow: hidden;
-  padding: 8px;
+  padding: var(--pane-padding);
 }
 </style>

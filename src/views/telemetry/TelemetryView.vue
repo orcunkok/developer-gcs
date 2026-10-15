@@ -1,8 +1,8 @@
 <script setup>
-import MfdCross from "../../components/MfdCross.vue";
+import PlaceholderView from "../PlaceholderView.vue";
 </script>
 
 <template>
   <!-- placeholder view, for debugging only -->
-  <MfdCross name="telemetry" />
+  <PlaceholderView name="telemetry" />
 </template>

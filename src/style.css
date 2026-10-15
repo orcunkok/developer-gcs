@@ -1,32 +1,34 @@
 /* ── Developer GCS ── Global Styles ── */
 
 :root {
-    /* ── Semantic Colors ── */
-    --color-nominal: #22c55e;
-    --color-watch: #f59e0b;
-    --color-action: #ef4444;
-    --color-info: #3b82f6;
-    --color-ai: #a855f7;
-
     /* ── Surface Colors ── */
     --bg: #ffffff;
-    --bg-surface: #f8f8fa;
     --border: #e2e2e6;
     --text: #1a1a1a;
-    --text-secondary: #6b6b76;
+    --text-inverse: #f0f0f0;
 
-    /* ── MFD Placeholder Colors ── */
-    --color-mfd-cross: #8a3a3a;
-    --color-mfd-cross-bg: #ffffff;
+    /* ── Region Colors ── */
+    --color-status-bar-bg: #e6e6fa;
+    --color-navbar-bg: #2a2a3a;
+    --color-left-pane-bg: #f5fffa;
+    --color-right-pane-bg: #b0e0e6;
+    --color-bottom-strip-bg: #fffacd;
+
+    /* ── Placeholder View Colors ── */
+    --color-placeholder-line: #8a3a3a;
+    --color-placeholder-bg: #ffffff;
 
     /* ── Selector Colors ── */
-    --color-select-active: rgba(0, 0, 0, 0.12);
     --color-select-hover: rgba(0, 0, 0, 0.08);
+    --color-select-active: rgba(0, 0, 0, 0.12);
     --color-picker-bg: #e6e6fa;
 
     /* ── Typography ── */
     --font-sans: system-ui, "Segoe UI", Roboto, sans-serif;
+    --font-size-label-sm: 12px;
+    --font-size-label: 13px;
     --font-size-view-label: 16px;
+    --letter-spacing-label: 0.04em;
     --font-mono:
         ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
 
@@ -36,7 +38,11 @@
     --right-pane-width: 280px;
     --bottom-strip-height: 48px;
     --picker-box-size: 72px;
-    --layout-btn-size: 28px;
+    --icon-btn-size: 28px;
+    --icon-btn-inset: 8px;
+    --icon-btn-radius: 4px;
+    --pane-padding: 8px;
+    --border-width: 1px;
 }
 
 *,

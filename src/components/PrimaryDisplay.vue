@@ -1,8 +1,8 @@
 <script setup>
 import { defineAsyncComponent } from 'vue'
-import MfdCross from './MfdCross.vue'
 import CameraView from '../views/camera/CameraView.vue'
 import TelemetryView from '../views/telemetry/TelemetryView.vue'
+import PlaceholderView from '../views/PlaceholderView.vue'
 
 // map code (maplibre, ~1 MB) and three.js (~0.5 MB) load in their own chunks so the layout paints first
 const MapView = defineAsyncComponent(() => import('../views/map/MapView.vue'))
@@ -24,7 +24,7 @@ const viewIds = Object.keys(views)
   <!-- cells fill the grid in order; keyed by view id so moving a view to another cell keeps its instance (map/three.js are never remounted) -->
   <main class="primary-display" :class="`layout-${layout}`">
     <div v-for="(id, i) in cells" :key="id ?? `empty-${i}`" class="primary-display__cell">
-      <component :is="id ? views[id] : MfdCross" />
+      <component :is="id ? views[id] : PlaceholderView" />
       <div v-if="editing" class="primary-display__overlay" @contextmenu.prevent @wheel.prevent>
         <div class="primary-display__picker">
           <button
@@ -98,7 +98,7 @@ const viewIds = Object.keys(views)
   border: none;
   background: var(--color-picker-bg);
   color: var(--text);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   cursor: pointer;
 }
 
