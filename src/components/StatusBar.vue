@@ -1,11 +1,19 @@
 <script setup>
-import { Menu } from 'lucide-vue-next'
+import { Menu, PanelsLeftBottom, Square, Columns2, Grid2x2 } from 'lucide-vue-next'
 
 defineProps({
-  navbarOpen: Boolean
+  navbarOpen: Boolean,
+  layout: String,
+  layoutEditing: Boolean
 })
 
-defineEmits(['toggle-navbar'])
+defineEmits(['toggle-navbar', 'toggle-layout-edit', 'select-layout'])
+
+const layouts = [
+  { id: '1x1', icon: Square },
+  { id: '1x2', icon: Columns2 },
+  { id: '2x2', icon: Grid2x2 }
+]
 </script>
 
 <template>
@@ -14,6 +22,20 @@ defineEmits(['toggle-navbar'])
       <Menu :size="16" />
     </button>
     <span class="status-bar__label">status bar</span>
+    <button class="status-bar__menu-btn status-bar__layout-btn" @click="$emit('toggle-layout-edit')" :class="{ active: layoutEditing }">
+      <PanelsLeftBottom :size="16" />
+    </button>
+    <div v-if="layoutEditing" class="status-bar__layout-bar">
+      <button
+        v-for="l in layouts"
+        :key="l.id"
+        class="status-bar__layout-opt"
+        :class="{ active: l.id === layout }"
+        @click="$emit('select-layout', l.id)"
+      >
+        <component :is="l.icon" :size="16" />
+      </button>
+    </div>
   </header>
 </template>
 
@@ -57,6 +79,36 @@ defineEmits(['toggle-navbar'])
 
 .status-bar__menu-btn.active {
   background: rgba(0, 0, 0, 0.12);
+}
+
+.status-bar__layout-btn {
+  left: auto;
+  right: 8px;
+}
+
+.status-bar__layout-bar {
+  position: absolute;
+  top: var(--topbar-height);
+  right: 0;
+  display: flex;
+}
+
+.status-bar__layout-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--layout-btn-size);
+  height: var(--layout-btn-size);
+  background: var(--color-picker-bg);
+  color: var(--text);
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.status-bar__layout-opt.active {
+  background: var(--color-select-active);
 }
 
 .status-bar__label {

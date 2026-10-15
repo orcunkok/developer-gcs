@@ -8,8 +8,8 @@ import { withTerrain } from "./terrain.js";
 const container = ref(null);
 let map = null;
 
-// MapLibre's built-in right-drag rotate is fixed at 0.8°/px bearing and 0.5°/px pitch (too twitchy)
-// and keeps spinning after release (inertia, not configurable), so rotation is handled here.
+// MapLibre's built-in right-drag rotate keeps spinning after release; its inertia can only be turned off
+// with reduceMotion, which also kills pan inertia and all camera animations, so rotation is handled here.
 const BEARING_DEG_PER_PX = 0.25;
 const PITCH_DEG_PER_PX = 0.15;
 
@@ -28,46 +28,32 @@ function hideStreetNamesWhenTilted() {
     map.once("load", update); // the initial pitch fires no pitch event
 }
 
+// Browsers already deliver pointermove once per frame, so camera updates need no extra throttling.
+// Left-drag pan and its grab/grabbing cursor are MapLibre's own.
 function enableSlowRightDragRotate(el) {
-    let startX, startY, startBearing, startPitch; // pointer + camera at drag start
-    let lastX, lastY; // latest pointer position, applied at most once per frame
-    let dragging = false;
-    let frame = 0;
+    let startX, startY, startBearing, startPitch;
 
-    const apply = () => {
-        frame = 0;
-        if (!map || !dragging) return;
+    const onMove = (e) =>
         map.jumpTo({
-            bearing: startBearing + (lastX - startX) * BEARING_DEG_PER_PX,
-            pitch: startPitch - (lastY - startY) * PITCH_DEG_PER_PX,
+            bearing: startBearing + (e.clientX - startX) * BEARING_DEG_PER_PX,
+            pitch: startPitch - (e.clientY - startY) * PITCH_DEG_PER_PX,
         });
-    };
-    const onMove = (e) => {
-        lastX = e.clientX;
-        lastY = e.clientY;
-        frame ||= requestAnimationFrame(apply);
-    };
-    const end = () => {
-        if (frame) {
-            cancelAnimationFrame(frame);
-            apply();
-        }
-        dragging = false;
-        el.removeEventListener("pointermove", onMove);
-    };
 
     el.addEventListener("pointerdown", (e) => {
         if (e.button !== 2) return;
-        el.setPointerCapture(e.pointerId);
-        startX = lastX = e.clientX;
-        startY = lastY = e.clientY;
+        el.setPointerCapture(e.pointerId); // captured pointer takes its cursor from el
+        startX = e.clientX;
+        startY = e.clientY;
         startBearing = map.getBearing();
         startPitch = map.getPitch();
-        dragging = true;
+        el.style.cursor = "grabbing";
         el.addEventListener("pointermove", onMove);
     });
-    el.addEventListener("pointerup", (e) => e.button === 2 && end());
-    el.addEventListener("pointercancel", end);
+    // fires on release and on cancel
+    el.addEventListener("lostpointercapture", () => {
+        el.style.cursor = "";
+        el.removeEventListener("pointermove", onMove);
+    });
 }
 
 onMounted(() => {
@@ -104,9 +90,5 @@ onUnmounted(() => {
 .map-container {
     width: 100%;
     height: 100%;
-}
-
-.map-container :deep(.maplibregl-canvas-container) {
-    cursor: crosshair !important;
 }
 </style>

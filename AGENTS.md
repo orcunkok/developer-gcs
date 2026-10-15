@@ -31,7 +31,7 @@ Apply in order:
 
 - Use `lucide-vue-next` for icons.
 - Minimize CPU usage, memory consumption, and unnecessary rendering.
-- Define all colors, typography, and layout dimensions as global CSS variables in `src/style.css`; never hardcode them elsewhere. Exception: map styles, colors and map CSS always live in `src/map/`.
+- Define all colors, typography, and layout dimensions as global CSS variables in `src/style.css`; never hardcode them elsewhere. Exception: map styles, colors and map CSS always live in `src/views/map/`; 3D scene colors live in `src/views/scene3d/`.
 - No CSS animations or transitions unless explicitly requested.
 - Keep JSDoc typedefs in their owning files; no standalone type files.
 - Mark all placeholders and temporary code with the exact phrase `for debugging only`.

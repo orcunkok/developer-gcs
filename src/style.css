@@ -15,8 +15,18 @@
     --text: #1a1a1a;
     --text-secondary: #6b6b76;
 
+    /* ── MFD Placeholder Colors ── */
+    --color-mfd-cross: #8a3a3a;
+    --color-mfd-cross-bg: #ffffff;
+
+    /* ── Selector Colors ── */
+    --color-select-active: rgba(0, 0, 0, 0.12);
+    --color-select-hover: rgba(0, 0, 0, 0.08);
+    --color-picker-bg: #e6e6fa;
+
     /* ── Typography ── */
     --font-sans: system-ui, "Segoe UI", Roboto, sans-serif;
+    --font-size-view-label: 16px;
     --font-mono:
         ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
 
@@ -25,6 +35,8 @@
     --left-pane-width: 240px;
     --right-pane-width: 280px;
     --bottom-strip-height: 48px;
+    --picker-box-size: 72px;
+    --layout-btn-size: 28px;
 }
 
 *,
@@ -51,4 +63,9 @@ body {
     height: 100vh;
     width: 100vw;
     overflow: hidden;
+}
+
+*:focus,
+*:focus-visible {
+    outline: none;
 }
