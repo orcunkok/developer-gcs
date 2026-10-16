@@ -6,53 +6,27 @@ import NavBar from './components/NavBar.vue'
 import PrimaryDisplay from './components/PrimaryDisplay.vue'
 import RightPane from './components/rightPane/RightPane.vue'
 import BottomStrip from './components/BottomStrip.vue'
+import { useLayoutStore } from './stores/layout.js'
 
-const leftPaneOpen = ref(false)
-const rightPaneOpen = ref(false)
-const bottomStripOpen = ref(false)
+const ui = useLayoutStore()
 const navbarOpen = ref(false)
-
-const LAYOUT_CELLS = { '1x1': 1, '1x2': 2, '2x2': 4 }
-const layout = ref('1x1')
-const cells = ref(['map'])
-const layoutEditing = ref(false)
-
-function selectLayout(l) {
-  if (l === layout.value && layoutEditing.value) {
-    layoutEditing.value = false
-    return
-  }
-  layout.value = l
-  const n = LAYOUT_CELLS[l]
-  const next = cells.value.slice(0, n)
-  while (next.length < n) next.push(null)
-  cells.value = next
-}
-
-function assignView(i, id) {
-  const next = cells.value.slice()
-  const j = next.indexOf(id)
-  if (j !== -1 && j !== i) next[j] = next[i]
-  next[i] = id
-  cells.value = next
-}
 
 function handleKeydown(e) {
   if (e.ctrlKey && e.key === ',') {
     e.preventDefault()
-    leftPaneOpen.value = !leftPaneOpen.value
+    ui.leftPaneOpen = !ui.leftPaneOpen
   }
   if (e.ctrlKey && e.key === '.') {
     e.preventDefault()
-    bottomStripOpen.value = !bottomStripOpen.value
+    ui.bottomStripOpen = !ui.bottomStripOpen
   }
   if (e.ctrlKey && e.key === '/') {
     e.preventDefault()
-    rightPaneOpen.value = !rightPaneOpen.value
+    ui.rightPaneOpen = !ui.rightPaneOpen
   }
   if (e.key === 'Escape') {
     if (navbarOpen.value) navbarOpen.value = false
-    if (layoutEditing.value) layoutEditing.value = false
+    if (ui.editing) ui.editing = false
   }
 }
 
@@ -61,23 +35,23 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 </script>
 
 <template>
-  <PrimaryDisplay :layout="layout" :cells="cells" :editing="layoutEditing" @assign-view="assignView" />
+  <PrimaryDisplay :layout="ui.layout" :cells="ui.cells" :editing="ui.editing" @assign-view="ui.assignView" />
   <div
     class="app-shell"
-    :class="{ 'left-collapsed': !leftPaneOpen, 'right-collapsed': !rightPaneOpen, 'bottom-collapsed': !bottomStripOpen }"
+    :class="{ 'left-collapsed': !ui.leftPaneOpen, 'right-collapsed': !ui.rightPaneOpen, 'bottom-collapsed': !ui.bottomStripOpen }"
   >
     <StatusBar
       :navbarOpen="navbarOpen"
-      :layout="layout"
-      :layoutEditing="layoutEditing"
+      :layout="ui.layout"
+      :layoutEditing="ui.editing"
       @toggle-navbar="navbarOpen = !navbarOpen"
-      @toggle-layout-edit="layoutEditing = !layoutEditing"
-      @select-layout="selectLayout"
+      @toggle-layout-edit="ui.editing = !ui.editing"
+      @select-layout="ui.selectLayout"
     />
-    <LeftPane v-if="leftPaneOpen" />
+    <LeftPane v-if="ui.leftPaneOpen" />
     <NavBar :open="navbarOpen" @close="navbarOpen = false" />
-    <RightPane v-if="rightPaneOpen" />
-    <BottomStrip v-if="bottomStripOpen" />
+    <RightPane v-if="ui.rightPaneOpen" />
+    <BottomStrip v-if="ui.bottomStripOpen" />
   </div>
 </template>
 

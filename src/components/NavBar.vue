@@ -4,12 +4,14 @@ defineProps({
 })
 
 defineEmits(['close'])
+
+const items = ['settings', 'frames', 'logs']
 </script>
 
 <template>
     <div v-if="open" class="navbar-backdrop" @click="$emit('close')">
       <nav class="navbar" @click.stop>
-        <span class="navbar__label">navbar</span>
+        <button v-for="item in items" :key="item" class="navbar__box">{{ item }}</button>
       </nav>
     </div>
 </template>
@@ -27,20 +29,20 @@ defineEmits(['close'])
   top: 0;
   left: 0;
   width: var(--left-pane-width);
-  height: 100%;
-  background: var(--color-navbar-bg);
-  border-right: var(--border-width) solid var(--border);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  flex-direction: column;
 }
 
-.navbar__label {
-  color: var(--text-inverse);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-label);
-  letter-spacing: var(--letter-spacing-label);
+.navbar__box {
+  width: 100%;
+  aspect-ratio: 1;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: var(--color-picker-bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  cursor: pointer;
 }
 
 </style>

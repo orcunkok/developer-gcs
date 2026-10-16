@@ -27,7 +27,8 @@ const CELL_SIZE = 1; // m per checker square
 const MODEL_URLS = Object.values(import.meta.glob("/assets/*.glb", { query: "?url", import: "default", eager: true }));
 const MODEL_SIZE = 0.6; // m, longest side after scaling
 const MODEL_SPACING = 1; // m between model centers, along east
-const MODEL_ALTITUDE = 1.5; // m
+// orbit pivot height; the camera can orbit down to the horizon, so this is also its lowest eye height
+const CAMERA_TARGET_HEIGHT = 0.1; // m
 // glTF models face +Z with +Y up (+X left); map that to NED: forward -> north, up -> up, left -> west
 const GLTF_TO_NED = new THREE.Quaternion().setFromRotationMatrix(
     new THREE.Matrix4().makeBasis(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(1, 0, 0)),
@@ -169,7 +170,7 @@ function createLights() {
     return [hemi, sun];
 }
 
-// loads each model, scales it to MODEL_SIZE and lines them up side by side along east, centered on the origin
+// loads each model, scales it to MODEL_SIZE and lines them up side by side along east on the floor, centered on the origin
 function loadModels() {
     const loader = new GLTFLoader();
     MODEL_URLS.forEach((url, i) => {
@@ -181,7 +182,8 @@ function loadModels() {
             model.scale.setScalar(MODEL_SIZE / Math.max(size.x, size.y, size.z));
             box.setFromObject(model);
             const east = (i - (MODEL_URLS.length - 1) / 2) * MODEL_SPACING;
-            model.position.sub(box.getCenter(new THREE.Vector3())).add(new THREE.Vector3(0, east, -MODEL_ALTITUDE));
+            const center = box.getCenter(new THREE.Vector3());
+            model.position.set(-center.x, east - center.y, -box.max.z); // NED: max z is the lowest point, put it on the floor
             model.traverse((obj) => (obj.castShadow = obj.isMesh));
             scene.add(model);
             renderer.shadowMap.needsUpdate = true;
@@ -216,7 +218,7 @@ onMounted(() => {
     scene.add(createSky(), createFloor(maxAnisotropy), createNorthMarker(maxAnisotropy), ...createLights());
     loadModels();
 
-    camera = new THREE.PerspectiveCamera(50, 1, 0.05, FLOOR_SIZE * 2);
+    camera = new THREE.PerspectiveCamera(50, 1, 0.01, FLOOR_SIZE * 2);
     camera.up.copy(UP);
     camera.position.set(-5, -4, -3); // south-west of the models, 3 m up
 
@@ -224,9 +226,9 @@ onMounted(() => {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     controls.cursorStyle = "grab"; // grab at rest, grabbing while dragging any button
-    controls.target.set(0, 0, -MODEL_ALTITUDE);
-    controls.maxPolarAngle = Math.PI / 2 - 0.02; // stay above the floor
-    controls.minDistance = 0.5;
+    controls.target.set(0, 0, -CAMERA_TARGET_HEIGHT);
+    controls.maxPolarAngle = Math.PI / 2; // down to the horizon, eye at target height
+    controls.minDistance = 0.1;
     controls.maxDistance = 80;
     controls.screenSpacePanning = false; // pan along the floor
     controls.update();

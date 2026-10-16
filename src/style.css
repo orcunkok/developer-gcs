@@ -5,11 +5,9 @@
     --bg: #ffffff;
     --border: #e2e2e6;
     --text: #1a1a1a;
-    --text-inverse: #f0f0f0;
 
     /* ── Region Colors ── */
     --color-status-bar-bg: #e6e6fa;
-    --color-navbar-bg: #2a2a3a;
     --color-left-pane-bg: #f5fffa;
     --color-right-pane-bg: #b0e0e6;
     --color-bottom-strip-bg: #fffacd;
