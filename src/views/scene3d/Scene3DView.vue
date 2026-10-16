@@ -3,12 +3,12 @@ import { ref, onMounted, onUnmounted } from "vue";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { createVehicles } from "./vehicles.js";
 
 // Scene colors live here, like map colors live in src/views/map/.
 const COLORS = {
-    skyTop: "#9fb4c9",
-    skyHorizon: "#e4e9ee",
+    skyTop: "#7fa6d1",
+    skyHorizon: "#d2e2f1",
     floorA: "#c3cad2",
     floorB: "#d3d8de",
     hemiSky: "#dfe8f2",
@@ -20,40 +20,41 @@ const COLORS = {
 // World frame is NED: +X north, +Y east, +Z down (floor at z = 0, altitude = -z).
 const UP = new THREE.Vector3(0, 0, -1);
 
-const FLOOR_SIZE = 200; // m
+const FLOOR_SIZE = 2000; // m
 const CELL_SIZE = 1; // m per checker square
+const FLOOR_DROP = 0.1; // m below z = 0
 
-// URLs of every .glb under /assets
-const MODEL_URLS = Object.values(import.meta.glob("/assets/*.glb", { query: "?url", import: "default", eager: true }));
-const MODEL_SIZE = 0.6; // m, longest side after scaling
-const MODEL_SPACING = 1; // m between model centers, along east
 // orbit pivot height; the camera can orbit down to the horizon, so this is also its lowest eye height
 const CAMERA_TARGET_HEIGHT = 0.1; // m
-// glTF models face +Z with +Y up (+X left); map that to NED: forward -> north, up -> up, left -> west
-const GLTF_TO_NED = new THREE.Quaternion().setFromRotationMatrix(
-    new THREE.Matrix4().makeBasis(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(1, 0, 0)),
-);
 const NORTH_MARKER_SIZE = 1.6; // m
 const NORTH_MARKER_DISTANCE = 4; // m north of the origin
+const NORTH_MARKER_SCALE_DISTANCE = 8; // m, true size inside this camera distance, growing linearly beyond it
+const NORTH_MARKER_MAX_SCALE = 6; // x, growth cap
 
 const container = ref(null);
-let renderer, scene, camera, controls, resizeObserver;
+let renderer, scene, camera, controls, resizeObserver, northMarker, vehicles;
 let frame = 0;
 
 // renders only when something changes; no continuous loop
 function requestRender() {
     frame ||= requestAnimationFrame(() => {
+        const animating = vehicles.update(); // frame is still set here, so a controls "change" it causes does not queue another frame
         frame = 0;
+        // north marker keeps a roughly constant size on screen when zoomed out; its position stays fixed
+        const distance = camera.position.distanceTo(northMarker.position);
+        northMarker.scale.setScalar(THREE.MathUtils.clamp(distance / NORTH_MARKER_SCALE_DISTANCE, 1, NORTH_MARKER_MAX_SCALE));
         renderer.render(scene, camera);
+        if (animating) requestRender();
     });
 }
 
 function createSky() {
-    const geometry = new THREE.SphereGeometry(FLOOR_SIZE, 32, 16);
+    const geometry = new THREE.SphereGeometry(FLOOR_SIZE * 0.75, 32, 16);
     const material = new THREE.ShaderMaterial({
         side: THREE.BackSide,
         depthWrite: false,
         fog: false,
+        toneMapped: false, // exact sky colours; fog is applied after tone mapping, so this also matches the floor's fogged horizon
         uniforms: {
             top: { value: new THREE.Color(COLORS.skyTop) },
             horizon: { value: new THREE.Color(COLORS.skyHorizon) },
@@ -71,7 +72,6 @@ function createSky() {
             void main() {
                 float t = pow(max(-vDir.z, 0.0), 0.6); // NED: up is -z
                 gl_FragColor = vec4(mix(horizon, top, t), 1.0);
-                #include <tonemapping_fragment>
                 #include <colorspace_fragment>
             }`,
     });
@@ -95,6 +95,7 @@ function createFloor(maxAnisotropy) {
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.setScalar(FLOOR_SIZE / (2 * CELL_SIZE));
     texture.magFilter = THREE.NearestFilter; // crisp square edges up close
+    texture.minFilter = THREE.LinearMipmapLinearFilter; // trilinear mipmaps fade distant checkers to their average
     texture.anisotropy = maxAnisotropy; // no shimmer at grazing angles
 
     const floor = new THREE.Mesh(
@@ -102,6 +103,7 @@ function createFloor(maxAnisotropy) {
         new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9, metalness: 0 }),
     );
     floor.rotation.x = Math.PI; // plane lies in XY; flip so its face points up (-z)
+    floor.position.z = FLOOR_DROP; // NED: slightly below z = 0 so nothing at ground level z-fights with it
     floor.receiveShadow = true;
     return floor;
 }
@@ -139,8 +141,6 @@ function createNorthMarker(maxAnisotropy) {
             depthWrite: false,
             roughness: 0.9,
             metalness: 0,
-            polygonOffset: true, // sits on the floor without z-fighting
-            polygonOffsetFactor: -1,
         }),
     );
     // texture right -> east (+Y), texture up -> north (+X), face up (-Z)
@@ -157,39 +157,17 @@ function createLights() {
     hemi.position.copy(UP); // hemisphere light's sky direction is its position
 
     const sun = new THREE.DirectionalLight(COLORS.sun, 2.2);
-    sun.position.set(4, 6, -12); // NED: 12 m up
+    sun.position.set(12, 18, -36); // NED: 36 m up, high enough to cover high flights
     sun.castShadow = true;
     sun.shadow.mapSize.setScalar(2048);
-    sun.shadow.camera.left = sun.shadow.camera.bottom = -10;
-    sun.shadow.camera.right = sun.shadow.camera.top = 10;
+    sun.shadow.camera.left = sun.shadow.camera.bottom = -25;
+    sun.shadow.camera.right = sun.shadow.camera.top = 25; // 50 m square, about 2.4 cm per shadow texel
     sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 40;
+    sun.shadow.camera.far = 100;
     sun.shadow.bias = -0.0005;
     sun.shadow.normalBias = 0.02;
     sun.shadow.radius = 4;
     return [hemi, sun];
-}
-
-// loads each model, scales it to MODEL_SIZE and lines them up side by side along east on the floor, centered on the origin
-function loadModels() {
-    const loader = new GLTFLoader();
-    MODEL_URLS.forEach((url, i) => {
-        loader.load(url, ({ scene: model }) => {
-            if (!scene) return; // unmounted while loading
-            model.quaternion.copy(GLTF_TO_NED);
-            const box = new THREE.Box3().setFromObject(model);
-            const size = box.getSize(new THREE.Vector3());
-            model.scale.setScalar(MODEL_SIZE / Math.max(size.x, size.y, size.z));
-            box.setFromObject(model);
-            const east = (i - (MODEL_URLS.length - 1) / 2) * MODEL_SPACING;
-            const center = box.getCenter(new THREE.Vector3());
-            model.position.set(-center.x, east - center.y, -box.max.z); // NED: max z is the lowest point, put it on the floor
-            model.traverse((obj) => (obj.castShadow = obj.isMesh));
-            scene.add(model);
-            renderer.shadowMap.needsUpdate = true;
-            requestRender();
-        });
-    });
 }
 
 onMounted(() => {
@@ -206,7 +184,7 @@ onMounted(() => {
     el.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(COLORS.skyHorizon, 30, FLOOR_SIZE / 2);
+    scene.fog = new THREE.Fog(COLORS.skyHorizon, 200, FLOOR_SIZE / 2);
 
     // soft image-based light so materials read as real surfaces, not flat-shaded
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -215,12 +193,12 @@ onMounted(() => {
     pmrem.dispose();
 
     const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
-    scene.add(createSky(), createFloor(maxAnisotropy), createNorthMarker(maxAnisotropy), ...createLights());
-    loadModels();
+    northMarker = createNorthMarker(maxAnisotropy);
+    scene.add(createSky(), createFloor(maxAnisotropy), northMarker, ...createLights());
 
-    camera = new THREE.PerspectiveCamera(50, 1, 0.01, FLOOR_SIZE * 2);
+    camera = new THREE.PerspectiveCamera(50, 1, 0.02, FLOOR_SIZE);
     camera.up.copy(UP);
-    camera.position.set(-5, -4, -3); // south-west of the models, 3 m up
+    camera.position.set(-5, -4, -3); // south-west of the origin, 3 m up
 
     // right-drag orbit (like the map), left-drag pan, wheel zoom; no damping so nothing moves after release
     controls = new OrbitControls(camera, renderer.domElement);
@@ -229,10 +207,11 @@ onMounted(() => {
     controls.target.set(0, 0, -CAMERA_TARGET_HEIGHT);
     controls.maxPolarAngle = Math.PI / 2; // down to the horizon, eye at target height
     controls.minDistance = 0.1;
-    controls.maxDistance = 80;
+    controls.maxDistance = 300;
     controls.screenSpacePanning = false; // pan along the floor
     controls.update();
     controls.addEventListener("change", requestRender);
+    vehicles = createVehicles(renderer, scene, camera, controls, requestRender);
 
     resizeObserver = new ResizeObserver(() => {
         const { clientWidth: w, clientHeight: h } = el;
@@ -246,6 +225,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    vehicles?.dispose();
     cancelAnimationFrame(frame);
     resizeObserver?.disconnect();
     controls?.dispose();
@@ -259,7 +239,7 @@ onUnmounted(() => {
     scene?.environment?.dispose();
     renderer?.dispose();
     renderer?.domElement.remove();
-    renderer = scene = camera = controls = resizeObserver = null;
+    renderer = scene = camera = controls = resizeObserver = northMarker = vehicles = null;
 });
 </script>
 

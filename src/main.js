@@ -8,3 +8,4 @@ const pinia = createPinia();
 pinia.use(piniaPluginPersistedstate);
 
 createApp(App).use(pinia).mount("#app");
+if (import.meta.env.MODE === "test") import("../test/testLink.js");

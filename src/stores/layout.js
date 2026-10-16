@@ -13,6 +13,7 @@ export const useLayoutStore = defineStore(
     const layout = ref('1x1')
     const cells = ref(['map'])
     const editing = ref(false)
+    const follow = ref([]) // vehicle keys the 3D camera follows; empty is free camera (not persisted)
 
     function selectLayout(l) {
       if (l === layout.value && editing.value) {
@@ -34,7 +35,7 @@ export const useLayoutStore = defineStore(
       cells.value = next
     }
 
-    return { leftPaneOpen, rightPaneOpen, bottomStripOpen, layout, cells, editing, selectLayout, assignView }
+    return { leftPaneOpen, rightPaneOpen, bottomStripOpen, layout, cells, editing, follow, selectLayout, assignView }
   },
   { persist: { pick: ['leftPaneOpen', 'rightPaneOpen', 'bottomStripOpen', 'layout', 'cells'] } },
 )
