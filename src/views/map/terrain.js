@@ -17,6 +17,9 @@ const demSource = new mlcontour.DemSource({
 });
 demSource.setupMaplibre({ addProtocol });
 
+/** 3D terrain mesh; turned off in the 2D top view, where hillshade and contours keep using the `dem` source */
+export const TERRAIN = { source: "dem", exaggeration: 1.2 };
+
 /**
  * Adds the DEM sources, 3D terrain and sky to the base style.
  * The hillshade and contour layers live in the base style and use the `dem` and `contours` sources.
@@ -53,7 +56,7 @@ export function withTerrain(base) {
                 ],
             },
         },
-        terrain: { source: "dem", exaggeration: 1.2 },
+        terrain: TERRAIN,
         // haze + sky so distant terrain fades out instead of ending at a hard edge
         sky: {
             "sky-color": "hsl(210, 90%, 72%)",
