@@ -13,7 +13,7 @@ export const useLayoutStore = defineStore(
     const layout = ref('1x1')
     const cells = ref(['map'])
     const editing = ref(false)
-    const follow = ref([]) // vehicle keys the 3D camera follows; empty is free camera (not persisted)
+    const follow = ref([]) // vehicle ids the 3D camera follows; empty is free camera (not persisted)
 
     function selectLayout(l) {
       if (l === layout.value && editing.value) {

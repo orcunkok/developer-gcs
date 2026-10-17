@@ -1,12 +1,12 @@
-import { watch } from "vue";
+import { watch, effectScope } from "vue";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import fpvUrl from "/assets/fpv.glb?url";
-import { messages, onMessage } from "../../link.js";
 import { useLayoutStore } from "../../stores/layout.js";
+import { useTelemetryStore } from "../../stores/useTelemetry.js";
 
-// model URL by MAV_TYPE (HEARTBEAT.type)
-const MODEL_BY_TYPE = { 2: fpvUrl };
+// model URL by vehicle type (telemetry state.type)
+const MODEL_BY_TYPE = { quadrotor: fpvUrl };
 const MODEL_SIZE = 0.6; // m, longest side after scaling
 const SCALE_DISTANCE = 8; // m, true size inside this camera distance, growing linearly beyond it
 const MAX_SCALE = 6; // x, growth cap
@@ -38,7 +38,9 @@ const offset = new THREE.Vector3();
  */
 export function createVehicles(renderer, scene, camera, controls, requestRender) {
     const layout = useLayoutStore();
-    const groups = new Map(); // key -> THREE.Group holding position and attitude
+    const telemetry = useTelemetryStore();
+    const groups = new Map(); // vehicle id -> THREE.Group holding position and attitude
+    const sources = new Map(); // vehicle id -> { vehicle: its telemetry, scope: its watchers }
     let following = false; // a glide to the current follow target has started
     let gliding = false;
     let glideStart = 0;
@@ -51,16 +53,13 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
         requestRender();
     }
 
-    // creates the group once the type is known; the model sits on the group origin, lowest point at z = 0
-    function add(key) {
-        const url = MODEL_BY_TYPE[messages[key]?.HEARTBEAT?.type];
-        if (!url) return;
-        const group = new THREE.Group();
-        groups.set(key, group);
-        scene.add(group);
+    // loads the model once the type is known; the model sits on the group origin, lowest point at z = 0
+    function loadModel(group, type) {
+        const url = MODEL_BY_TYPE[type];
+        if (!url || group.children.length) return;
         if (!models.has(url)) models.set(url, loader.loadAsync(url));
         models.get(url).then(({ scene: loaded }) => {
-            if (groups.get(key) !== group) return; // removed or unmounted while loading
+            if (!group.parent || group.children.length) return; // removed or unmounted while loading
             const model = loaded.clone();
             model.quaternion.copy(GLTF_TO_NED);
             const box = new THREE.Box3().setFromObject(model);
@@ -73,23 +72,44 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
             group.add(model);
             changed();
         });
-        return group;
     }
 
-    function onVehicleMessage(key, name, fields) {
-        const group = groups.get(key) ?? (name && add(key));
-        if (!group) return;
-        if (name === null) {
-            scene.remove(group);
-            groups.delete(key);
-        } else if (name === "LOCAL_POSITION_NED") {
-            if (group.position.equals(fields)) return;
-            group.position.set(fields.x, fields.y, fields.z);
-        } else if (name === "ATTITUDE") {
-            quaternion.setFromEuler(euler.set(fields.roll, fields.pitch, fields.yaw, "ZYX"));
-            if (quaternion.equals(group.quaternion)) return;
-            group.quaternion.copy(quaternion);
-        } else return;
+    function add(id, vehicle) {
+        const group = new THREE.Group();
+        groups.set(id, group);
+        scene.add(group);
+        const scope = effectScope();
+        sources.set(id, { vehicle, scope });
+        scope.run(() => {
+            watch(() => vehicle.state?.type, (type) => loadModel(group, type), { immediate: true });
+            watch(
+                () => vehicle.localPosition,
+                (p) => {
+                    if (!p || group.position.equals(p)) return;
+                    group.position.set(p.x, p.y, p.z);
+                    changed();
+                },
+                { immediate: true },
+            );
+            watch(
+                () => vehicle.attitude,
+                (a) => {
+                    if (!a) return;
+                    quaternion.setFromEuler(euler.set(a.roll, a.pitch, a.yaw, "ZYX"));
+                    if (quaternion.equals(group.quaternion)) return;
+                    group.quaternion.copy(quaternion);
+                    changed();
+                },
+                { immediate: true },
+            );
+        });
+    }
+
+    function remove(id) {
+        sources.get(id).scope.stop();
+        sources.delete(id);
+        scene.remove(groups.get(id));
+        groups.delete(id);
         changed();
     }
 
@@ -97,8 +117,8 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
     function followCentroid() {
         let count = 0;
         centroid.set(0, 0, 0);
-        for (const key of layout.follow) {
-            const group = groups.get(key);
+        for (const id of layout.follow) {
+            const group = groups.get(id);
             if (!group) continue;
             centroid.add(group.position);
             count++;
@@ -120,8 +140,8 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
             glideStart = performance.now();
             glideFrom.copy(controls.target);
             let radius = 0;
-            for (const key of layout.follow) {
-                const group = groups.get(key);
+            for (const id of layout.follow) {
+                const group = groups.get(id);
                 if (group) radius = Math.max(radius, group.position.distanceTo(centroid));
             }
             const fit = Math.max(FOLLOW_DISTANCE, radius * FOLLOW_SPREAD_FIT);
@@ -154,8 +174,15 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
         }
     }
 
-    for (const key of Object.keys(messages)) add(key);
-    const unsubscribe = onMessage(onVehicleMessage);
+    // vehicles added, removed, or replaced (a new vehicle under a reused id)
+    const stopVehicles = watch(
+        () => telemetry.id,
+        (vehicles) => {
+            for (const [id, { vehicle }] of sources) if (vehicles[id] !== vehicle) remove(id);
+            for (const id in vehicles) if (!sources.has(+id)) add(+id, vehicles[id]); // object keys are strings, ids are numbers
+        },
+        { immediate: true },
+    );
     // the store replaces the array on every change, so a shallow watch is enough
     const stopWatch = watch(
         () => layout.follow,
@@ -174,9 +201,12 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
             return gliding;
         },
         dispose() {
-            unsubscribe();
+            stopVehicles();
             stopWatch();
-            groups.clear(); // also makes in-flight model loads skip their vehicle
+            for (const { scope } of sources.values()) scope.stop();
+            for (const group of groups.values()) scene.remove(group); // also makes in-flight model loads skip their vehicle
+            sources.clear();
+            groups.clear();
         },
     };
 }

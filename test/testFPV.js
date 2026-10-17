@@ -25,7 +25,7 @@ const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2
 const clamp = (x, m) => Math.max(-m, Math.min(m, x))
 
 /**
- * pos and att are shaped like LOCAL_POSITION_NED and ATTITUDE so the link sends them as-is
+ * pos, vel and att are NED / radians, like LOCAL_POSITION_NED and ATTITUDE
  * @typedef {Object} Fpv
  * @property {{x: number, y: number, z: number}} pos NED metres, z = 0 on the floor
  * @property {{x: number, y: number, z: number}} vel

@@ -1,139 +1,132 @@
-// test link: simulated FPV drones behind src/link.js, driven by window.gcs and the dev server terminal
-import { ingest, setLink, send, remove, messages } from "../src/link.js"
+// test link: simulated FPV drones writing to the telemetry store like a real link, driven by window.gcs and the dev server terminal
 import { create, step } from "./testFPV.js"
 import { useLayoutStore } from "../src/stores/layout.js"
+import { useTelemetryStore } from "../src/stores/useTelemetry.js"
+import { useCommandsStore } from "../src/stores/useCommands.js"
 
 const DT = 0.02 // 50 Hz telemetry
-const HEARTBEAT_EVERY = 50 // ticks, 1 Hz like a real autopilot
+const STATE_EVERY = 50 // ticks, 1 Hz like a real autopilot heartbeat
 const RTL_ALT = 15 // m, like ArduPilot's RTL_ALT default
-const drones = new Map() // key -> { state, hb }
-let count = 0
+const telemetry = useTelemetryStore()
+const commands = useCommandsStore()
+const drones = new Map() // vehicle id -> FPV state
 let tick = 0
 let demoTimer = 0
 let members = [] // swarm selection
 
-function heartbeat(key, d) {
-  d.hb.base_mode = d.state.armed ? 128 : 0
-  ingest(key, "HEARTBEAT", d.hb)
+function state(id, v) {
+  telemetry.write(id, "state", { type: "quadrotor", armed: v.armed })
+}
+
+function pose(id, { pos, vel, att }) {
+  telemetry.write(id, "localPosition", { x: pos.x, y: pos.y, z: pos.z, vx: vel.x, vy: vel.y, vz: vel.z })
+  telemetry.write(id, "attitude", { roll: att.roll, pitch: att.pitch, yaw: att.yaw })
 }
 
 setInterval(() => {
-  const beat = ++tick % HEARTBEAT_EVERY === 0
-  for (const [key, d] of drones) {
-    step(d.state, DT)
-    if (beat) heartbeat(key, d)
-    ingest(key, "LOCAL_POSITION_NED", d.state.pos)
-    ingest(key, "ATTITUDE", d.state.att)
+  const beat = ++tick % STATE_EVERY === 0
+  for (const [id, v] of drones) {
+    step(v, DT)
+    if (beat) state(id, v)
+    pose(id, v)
   }
 }, DT * 1000)
 
-setLink({
-  send(key, name, f) {
-    const v = drones.get(key)?.state
-    if (!v) return
-    const { pos, target } = v
-    if (name === "SET_POSITION_TARGET_LOCAL_NED") {
-      Object.assign(target, { x: f.x, y: f.y, z: f.z })
-      v.landing = v.rtl = false
-      return
-    }
-    if (name !== "COMMAND_LONG") return
-    let ok = true
-    if (f.command === 400) {
-      // arm / disarm
-      v.armed = f.param1 === 1
-      target.z = pos.z
-    } else if (f.command === 22) {
-      // takeoff to param7 metres
-      ok = v.armed
-      if (ok) Object.assign(target, { x: pos.x, y: pos.y, z: -f.param7 })
-      v.landing = v.rtl = false
-    } else if (f.command === 21) {
-      // land
-      Object.assign(target, { x: pos.x, y: pos.y, z: 0 })
-      v.landing = true
-      v.rtl = false
-    } else if (f.command === 20) {
-      // return to launch: home at RTL_ALT (or higher if already above), then land
-      ok = v.armed
-      if (ok) Object.assign(target, { x: v.home.x, y: v.home.y, z: Math.min(pos.z, -RTL_ALT) })
-      v.rtl = ok
-      v.landing = false
-    }
-    ingest(key, "COMMAND_ACK", { command: f.command, result: ok ? 0 : 4 })
-  },
-})
+// commands arriving from the GCS (see src/stores/useCommands.js)
+function receive(id, command, args) {
+  const v = drones.get(id)
+  const { pos, target } = v
+  if (command === "goto") {
+    const [x, y, z] = args
+    Object.assign(target, { x, y, z })
+    v.landing = v.rtl = false
+  } else if (command === "arm" || command === "disarm") {
+    v.armed = command === "arm"
+    target.z = pos.z
+  } else if (command === "takeoff") {
+    if (!v.armed) return
+    Object.assign(target, { x: pos.x, y: pos.y, z: -args[0] })
+    v.landing = v.rtl = false
+  } else if (command === "land") {
+    Object.assign(target, { x: pos.x, y: pos.y, z: 0 })
+    v.landing = true
+    v.rtl = false
+  } else if (command === "rtl") {
+    // home at RTL_ALT (or higher if already above), then land
+    if (!v.armed) return
+    Object.assign(target, { x: v.home.x, y: v.home.y, z: Math.min(pos.z, -RTL_ALT) })
+    v.rtl = true
+    v.landing = false
+  }
+}
 
-// accepts a key or its number: 1 -> "test:1"
-const keyOf = (id) => (typeof id === "number" ? `test:${id}` : id)
-const posOf = (key) => messages[keyOf(key)]?.LOCAL_POSITION_NED
-const cmd = (key, command, param1 = 0, param7 = 0) =>
-  send(keyOf(key), "COMMAND_LONG", { command, param1, param7 })
+const posOf = (id) => drones.get(id)?.pos
 const rand = (a, b) => a + Math.random() * (b - a)
 
 const gcs = {
   spawn(n = 1) {
-    const keys = []
+    const ids = []
     for (let i = 0; i < n; i++) {
-      const key = `test:${++count}`
-      const d = { state: create(count * 3, (count % 2) * 3), hb: { type: 2, base_mode: 0 } }
-      drones.set(key, d)
-      heartbeat(key, d) // first, so the vehicle type is known before any position
-      ingest(key, "LOCAL_POSITION_NED", d.state.pos)
-      ingest(key, "ATTITUDE", d.state.att)
-      keys.push(key)
+      const id = telemetry.add()
+      const v = create(id * 3, (id % 2) * 3)
+      drones.set(id, v)
+      commands.connect(id, (command, args) => receive(id, command, args))
+      state(id, v)
+      pose(id, v)
+      ids.push(id)
     }
-    return keys
+    return ids
   },
-  arm: (key) => cmd(key, 400, 1),
-  disarm: (key) => cmd(key, 400, 0),
-  takeoff: (key, alt = 5) => cmd(key, 22, 0, alt),
-  land: (key) => cmd(key, 21),
-  rtl: (key) => cmd(key, 20),
-  goto: (key, north, east, alt) =>
-    send(keyOf(key), "SET_POSITION_TARGET_LOCAL_NED", { x: north, y: east, z: -alt }),
+  arm: (id) => commands.send(id, "arm"),
+  disarm: (id) => commands.send(id, "disarm"),
+  takeoff: (id, alt = 5) => commands.send(id, "takeoff", alt),
+  land: (id) => commands.send(id, "land"),
+  rtl: (id) => commands.send(id, "rtl"),
+  goto: (id, north, east, alt) => commands.send(id, "goto", north, east, -alt),
   // climb or descend to alt at the current position
-  alt(key, alt) {
-    const p = posOf(key)
-    if (p) gcs.goto(key, p.x, p.y, alt)
+  alt(id, alt) {
+    const p = posOf(id)
+    if (p) gcs.goto(id, p.x, p.y, alt)
   },
-  // hover in place; without a key also ends the demo and stops every drone
-  stop(key) {
-    if (key === undefined) {
+  // hover in place; without an id also ends the demo and stops every drone
+  stop(id) {
+    if (id === undefined) {
       clearInterval(demoTimer)
       for (const k of drones.keys()) gcs.stop(k)
       return
     }
-    const p = posOf(key)
-    if (p) gcs.goto(key, p.x, p.y, -p.z)
+    const p = posOf(id)
+    if (p) gcs.goto(id, p.x, p.y, -p.z)
   },
   // remove every drone; numbering starts from 1 again
   reset() {
     clearInterval(demoTimer)
-    for (const k of drones.keys()) remove(k)
+    for (const k of drones.keys()) {
+      commands.disconnect(k)
+      telemetry.remove(k)
+    }
     drones.clear()
     members = []
-    count = 0
     useLayoutStore().follow = []
   },
   demo(n = 4) {
-    const keys = gcs.spawn(n)
-    for (const k of keys) {
+    const ids = gcs.spawn(n)
+    for (const k of ids) {
       gcs.arm(k)
       gcs.takeoff(k)
     }
     clearInterval(demoTimer)
     demoTimer = setInterval(() => {
-      for (const k of keys) gcs.goto(k, rand(-20, 20), rand(-20, 20), rand(3, 10))
+      for (const k of ids) gcs.goto(k, rand(-20, 20), rand(-20, 20), rand(3, 10))
     }, 3000)
-    return keys
+    return ids
   },
   // 3D camera follows these drones, or the swarm for "swarm" (all drones if none selected); no ids frees the camera
   watch(...ids) {
-    const swarmKeys = members.length ? members : [...drones.keys()]
-    const keys = (ids[0] === "swarm" ? swarmKeys : ids.map(keyOf)).filter((k) => drones.has(k))
-    useLayoutStore().follow = keys
-    return keys.length ? keys : "free camera"
+    const swarmIds = members.length ? members : [...drones.keys()]
+    const follow = (ids[0] === "swarm" ? swarmIds : ids).filter((k) => drones.has(k))
+    useLayoutStore().follow = follow
+    return follow.length ? follow : "free camera"
   },
   unwatch: () => gcs.watch(),
   swarm,
@@ -141,7 +134,7 @@ const gcs = {
 
 // selects drones (all when no ids); swarm.<command> sends the same command to every member
 function swarm(...ids) {
-  members = ids.length ? ids.map(keyOf).filter((k) => drones.has(k)) : [...drones.keys()]
+  members = ids.length ? ids.filter((k) => drones.has(k)) : [...drones.keys()]
   return members
 }
 for (const name of ["arm", "disarm", "takeoff", "land", "rtl", "alt", "stop"])

@@ -1,6 +1,6 @@
 # developer-gcs
 
-Vue 3 + Vite + maplibre-gl. Uses [bun](https://bun.sh).
+Ground control station for swarm development. Requires [bun](https://bun.sh).
 
 ## Install
 
@@ -21,7 +21,7 @@ bun run preview  # serve the production build
 
 `bun run dev:test` runs the app with simulated FPV drones, so features can be developed and checked without hardware. Open the 3D view to see them fly.
 
-Type commands in the same terminal where `bun run dev:test` runs; results print back as `gcs: ...`. A browser tab must be open, since the drones are simulated in the page. Keep a single tab open: every tab runs its own drones and receives each command. Drones are numbered `1`, `2`, … (key `test:1`, …).
+Type commands in the same terminal where `bun run dev:test` runs; results print back as `gcs: ...`. A browser tab must be open, since the drones are simulated in the page. Keep a single tab open: every tab runs its own drones and receives each command. Drones are numbered `1`, `2`, ….
 
 ```
 demo
@@ -56,15 +56,6 @@ land 1
 
 Console style works too: `swarm(1,2,3)`, `swarm.alt(100)`. **Test only:** there is no swarm collision avoidance yet, so `swarm.goto north east alt` moves the swarm's centre to that point and each drone keeps its offset from the centre; the other swarm commands are sent to each member as-is. Unknown commands print the list. Single-letter lines (`r`, `u`, `o`, `c`, `q`, `h`) stay Vite's own shortcuts. The same commands work in the browser console as `gcs.takeoff(1, 10)` and `swarm.alt(100)`.
 
-How it fits together:
-
-- `src/link.js`: the link seam. Links push raw MAVLink messages in with `ingest()` and drop vehicles with `remove()`; commands go out with `send()`. Real links will plug in here.
-- `test/testLink.js`: the simulated link. 50 Hz `LOCAL_POSITION_NED` and `ATTITUDE`, 1 Hz `HEARTBEAT`; handles arm/takeoff/land (`COMMAND_LONG`) and goto (`SET_POSITION_TARGET_LOCAL_NED`).
-- `test/testFPV.js`: simple FPV quad physics (tilt-driven, visual wobble). VTOL and plane models go next to it later (`testVTOL.js`, `testPlane.js`).
-- `test/testTerminal.js`: Vite plugin, loaded only in test mode, that forwards terminal lines to the browser.
-
-`/test` is never part of production builds.
-
 ## Shortcuts
 
 | Shortcut | Action |
@@ -78,4 +69,4 @@ The navbar is opened with the menu button in the status bar. The layout button (
 
 ## Map
 
-Right-drag rotates and tilts the map (custom handler in `src/views/map/MapView.vue`, no inertia). Map style, terrain and map CSS live in `src/views/map/`.
+Left-drag pans, right-drag rotates and tilts (stops as soon as you let go), wheel zooms. The `2D`/`3D` button switches between a top view and a tilted 3D view; the compass button turns the map back to north.
