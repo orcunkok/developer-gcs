@@ -22,7 +22,7 @@ const UP = new THREE.Vector3(0, 0, -1);
 
 const FLOOR_SIZE = 2000; // m
 const CELL_SIZE = 1; // m per checker square
-const FLOOR_DROP = 0.1; // m below z = 0
+const FLOOR_DROP = 0.01; // m below z = 0
 
 // orbit pivot height; the camera can orbit down to the horizon, so this is also its lowest eye height
 const CAMERA_TARGET_HEIGHT = 0.1; // m
@@ -139,6 +139,10 @@ function createNorthMarker(maxAnisotropy) {
             transparent: true,
             opacity: 0.55,
             depthWrite: false,
+            // pulled towards the camera in depth so it wins over the floor at any distance (no z-fighting far out)
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -4,
             roughness: 0.9,
             metalness: 0,
         }),
@@ -205,7 +209,7 @@ onMounted(() => {
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     controls.cursorStyle = "grab"; // grab at rest, grabbing while dragging any button
     controls.target.set(0, 0, -CAMERA_TARGET_HEIGHT);
-    controls.maxPolarAngle = Math.PI / 2; // down to the horizon, eye at target height
+    controls.maxPolarAngle = Math.PI / 2; // down to the horizon, eye at target height; vehicles.js lifts it while following
     controls.minDistance = 0.1;
     controls.maxDistance = 300;
     controls.screenSpacePanning = false; // pan along the floor

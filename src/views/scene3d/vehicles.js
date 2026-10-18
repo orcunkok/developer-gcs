@@ -127,11 +127,14 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
         return count;
     }
 
-    // glides onto the followed centroid, then keeps it fixed on screen by moving target and camera together
+    // glides onto the followed centroid, then keeps it fixed on screen by moving target and camera together;
+    // while following, the camera orbits all the way around the target, including below it
     function follow() {
         const count = followCentroid();
         controls.enablePan = !count;
+        controls.maxPolarAngle = count ? Math.PI : Math.PI / 2;
         if (!count) {
+            if (following) controls.update(); // clamps the camera back above the horizon
             following = gliding = false;
             return;
         }
