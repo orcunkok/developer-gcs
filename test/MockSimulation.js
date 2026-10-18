@@ -1,172 +1,218 @@
-// test link: simulated FPV drones writing to the telemetry store like a real link, driven by window.gcs and the dev server terminal
+// Test link: simulated drones that use our stores exactly like a real link.
+// Telemetry goes into the telemetry store; commands come from the commands store.
+// Drive it from the browser console (gcs, swarm) or the dev server terminal (npm run dev:test).
 import { create, step } from "./MockFPV.js"
 import { useLayoutStore } from "../src/stores/layout.js"
 import { useTelemetryStore } from "../src/stores/useTelemetry.js"
 import { useCommandsStore } from "../src/stores/useCommands.js"
 
-const DT = 0.02 // 50 Hz telemetry
-const HEARTBEAT_EVERY = 50 // ticks, 1 Hz like a real autopilot
-const RTL_ALT = 15 // m, like ArduPilot's RTL_ALT default
+const TICK_SECONDS = 0.02 // 50 Hz physics and position telemetry
+const TICKS_PER_HEARTBEAT = 50 // 1 Hz heartbeat, like a real autopilot
+const RTL_ALTITUDE = 15 // m, like ArduPilot's RTL_ALT default
+const SWARM = 1 // the swarm group that "swarm 1 2 3" picks and swarm commands go to
+
 const telemetry = useTelemetryStore()
 const command = useCommandsStore()
-const drones = new Map() // vehicle id -> FPV state
-let tick = 0
-let demoTimer = 0
-let members = [] // swarm selection
 
-function heartbeat(id, v) {
+const drones = new Map() // vehicle id -> simulated drone (see MockFPV.js)
+let tickCount = 0
+let demoTimer = 0
+
+// --- Simulation -> telemetry store -------------------------------------------
+
+function sendHeartbeat(id, drone) {
   telemetry.write(id, "type", "quadrotor")
-  telemetry.write(id, "arm", v.armed)
+  telemetry.write(id, "is_armed", drone.armed)
 }
 
-function pose(id, { pos, vel, att }) {
+function sendPose(id, drone) {
+  const { pos, vel, att } = drone
   telemetry.write(id, "local", { x: pos.x, y: pos.y, z: pos.z, vx: vel.x, vy: vel.y, vz: vel.z })
   telemetry.write(id, "attitude", { roll: att.roll, pitch: att.pitch, yaw: att.yaw })
 }
 
 setInterval(() => {
-  const beat = ++tick % HEARTBEAT_EVERY === 0
-  for (const [id, v] of drones) {
-    step(v, DT)
-    if (beat) heartbeat(id, v)
-    pose(id, v)
+  tickCount++
+  for (const [id, drone] of drones) {
+    step(drone, TICK_SECONDS)
+    if (tickCount % TICKS_PER_HEARTBEAT === 0) sendHeartbeat(id, drone)
+    sendPose(id, drone)
   }
-}, DT * 1000)
+}, TICK_SECONDS * 1000)
 
-// commands the store accepted for a simulated drone, like a real link (see src/network/useMavlink.js)
+// --- Commands store -> simulation --------------------------------------------
+
+// Every command the store accepts, like a real link (see src/network/useMavlink.js).
+// A swarm command arrives once per member. `true` keeps the listener for the whole session.
 command.$onAction(({ name, args, after }) => {
   after((accepted) => {
-    if (accepted && drones.has(args[0])) receive(args[0], name, args.slice(1))
+    const [id, ...params] = args
+    const drone = drones.get(id)
+    if (accepted && drone) applyCommand(drone, name, params)
   })
 }, true)
 
-function receive(id, command, args) {
-  const v = drones.get(id)
-  const { pos, target } = v
-  if (command === "goto") {
-    const [x, y, z] = args
-    Object.assign(target, { x, y, z })
-    v.landing = v.rtl = false
-  } else if (command === "arm" || command === "disarm") {
-    v.armed = command === "arm"
-    target.z = pos.z
-  } else if (command === "takeoff") {
-    if (!v.armed) return
-    Object.assign(target, { x: pos.x, y: pos.y, z: -args[0] })
-    v.landing = v.rtl = false
-  } else if (command === "land") {
-    Object.assign(target, { x: pos.x, y: pos.y, z: 0 })
-    v.landing = true
-    v.rtl = false
-  } else if (command === "rtl") {
-    // home at RTL_ALT (or higher if already above), then land
-    if (!v.armed) return
-    Object.assign(target, { x: v.home.x, y: v.home.y, z: Math.min(pos.z, -RTL_ALT) })
-    v.rtl = true
-    v.landing = false
+// Positions are NED metres: x north, y east, z down (z = -10 is 10 m up).
+function applyCommand(drone, name, params) {
+  const { pos, home, target } = drone
+  switch (name) {
+    case "arm":
+    case "disarm":
+      drone.armed = name === "arm"
+      target.z = pos.z // hold the current height
+      break
+    case "takeoff":
+      if (!drone.armed) return
+      flyTo(drone, pos.x, pos.y, -params[0])
+      break
+    case "goto":
+      flyTo(drone, params[0], params[1], params[2])
+      break
+    case "land":
+      flyTo(drone, pos.x, pos.y, 0)
+      drone.landing = true // MockFPV disarms it on touchdown
+      break
+    case "rtl":
+      if (!drone.armed) return
+      flyTo(drone, home.x, home.y, Math.min(pos.z, -RTL_ALTITUDE)) // stays higher if already above RTL_ALTITUDE
+      drone.rtl = true // MockFPV lands it once home
+      break
   }
 }
 
-const posOf = (id) => drones.get(id)?.pos
-const rand = (a, b) => a + Math.random() * (b - a)
+// New target; cancels any landing or return home in progress.
+function flyTo(drone, x, y, z) {
+  drone.target.x = x
+  drone.target.y = y
+  drone.target.z = z
+  drone.landing = false
+  drone.rtl = false
+}
 
+// --- Console and terminal controls -------------------------------------------
+
+const randomBetween = (min, max) => min + Math.random() * (max - min)
+
+// Flight commands are the commands store's own; goto is NED: gcs.goto(1, 10, 5, -8) is 10 m north, 5 m east, 8 m up.
 const gcs = {
-  spawn(n = 1) {
+  arm: command.arm,
+  disarm: command.disarm,
+  takeoff: command.takeoff,
+  land: command.land,
+  rtl: command.rtl,
+  goto: command.goto,
+
+  // Adds drones on the ground and returns their ids.
+  spawn(count = 1) {
     const ids = []
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < count; i++) {
       const id = telemetry.add()
-      const v = create(id * 3, (id % 2) * 3)
-      drones.set(id, v)
-      heartbeat(id, v)
-      pose(id, v)
+      const drone = create(id * 3, (id % 2) * 3) // spread out so they don't overlap
+      drones.set(id, drone)
+      sendHeartbeat(id, drone)
+      sendPose(id, drone)
       ids.push(id)
     }
     return ids
   },
-  arm: (id) => command.arm(id),
-  disarm: (id) => command.disarm(id),
-  takeoff: (id, alt = 5) => command.takeoff(id, alt),
-  land: (id) => command.land(id),
-  rtl: (id) => command.rtl(id),
-  goto: (id, north, east, alt) => command.goto(id, north, east, -alt),
-  // climb or descend to alt at the current position
-  alt(id, alt) {
-    const p = posOf(id)
-    if (p) gcs.goto(id, p.x, p.y, alt)
+
+  // Climbs or descends to `altitude` metres (up is positive) where it is.
+  alt(id, altitude) {
+    const drone = drones.get(id)
+    return drone ? command.goto(id, drone.pos.x, drone.pos.y, -altitude) : false
   },
-  // hover in place; without an id also ends the demo and stops every drone
+
+  // Hovers where it is. Without an id: ends the demo and stops every drone.
   stop(id) {
     if (id === undefined) {
       clearInterval(demoTimer)
-      for (const k of drones.keys()) gcs.stop(k)
+      for (const droneId of drones.keys()) gcs.stop(droneId)
       return
     }
-    const p = posOf(id)
-    if (p) gcs.goto(id, p.x, p.y, -p.z)
+    const drone = drones.get(id)
+    return drone ? command.goto(id, drone.pos.x, drone.pos.y, drone.pos.z) : false
   },
-  // remove every drone; numbering starts from 1 again
+
+  // Removes every drone; ids start from 1 again.
   reset() {
     clearInterval(demoTimer)
-    for (const k of drones.keys()) telemetry.remove(k)
+    for (const id of drones.keys()) telemetry.remove(id)
     drones.clear()
-    members = []
     useLayoutStore().follow = []
   },
-  demo(n = 4) {
-    const ids = gcs.spawn(n)
-    for (const k of ids) {
-      gcs.arm(k)
-      gcs.takeoff(k)
-    }
+
+  // Spawns drones as the swarm, arms and takes them off, then sends each to a random point every 3 s.
+  demo(count = 4) {
+    const ids = gcs.spawn(count)
+    swarm(...ids)
+    swarm.arm()
+    swarm.takeoff(5)
     clearInterval(demoTimer)
     demoTimer = setInterval(() => {
-      for (const k of ids) gcs.goto(k, rand(-20, 20), rand(-20, 20), rand(3, 10))
+      for (const id of ids) command.goto(id, randomBetween(-20, 20), randomBetween(-20, 20), -randomBetween(3, 10))
     }, 3000)
     return ids
   },
-  // 3D camera follows these drones, or the swarm for "swarm" (all drones if none selected); no ids frees the camera
+
+  // 3D camera: watch(1, 2) follows drones 1 and 2, watch("swarm") the swarm (every drone if none picked),
+  // watch() frees the camera.
   watch(...ids) {
-    const swarmIds = members.length ? members : [...drones.keys()]
-    const follow = (ids[0] === "swarm" ? swarmIds : ids).filter((k) => drones.has(k))
+    if (ids[0] === "swarm") {
+      const members = swarm.members()
+      ids = members.length > 0 ? members : [...drones.keys()]
+    }
+    const follow = ids.filter((id) => drones.has(id))
     useLayoutStore().follow = follow
-    return follow.length ? follow : "free camera"
+    return follow.length > 0 ? follow : "free camera"
   },
+
   unwatch: () => gcs.watch(),
-  swarm,
 }
 
-// selects drones (all when no ids); swarm.<command> sends the same command to every member
+// "swarm 1 2 3" puts drones 1, 2, 3 in the SWARM group and everyone else out (no ids: every drone).
 function swarm(...ids) {
-  members = ids.length ? ids.filter((k) => drones.has(k)) : [...drones.keys()]
-  return members
-}
-for (const name of ["arm", "disarm", "takeoff", "land", "rtl", "alt", "stop"])
-  swarm[name] = (...args) => members.forEach((k) => gcs[name](k, ...args))
-
-// test only: there is no collision avoidance yet, so swarm.goto moves the swarm's centre to the point
-// and each drone keeps its offset from that centre instead of all converging on one spot
-swarm.goto = (north, east, alt) => {
-  const ps = members.map(posOf)
-  const cx = ps.reduce((s, p) => s + p.x, 0) / ps.length
-  const cy = ps.reduce((s, p) => s + p.y, 0) / ps.length
-  members.forEach((k, i) => gcs.goto(k, north + ps[i].x - cx, east + ps[i].y - cy, alt))
+  if (ids.length === 0) ids = [...drones.keys()]
+  for (const id of drones.keys()) command.swarm.remove(id)
+  for (const id of ids) command.swarm.add(id, SWARM)
+  return command.swarm.members(SWARM)
 }
 
+// "swarm takeoff 5" sends the store's swarm command to the SWARM group.
+swarm.arm = () => command.swarm.arm(SWARM)
+swarm.disarm = () => command.swarm.disarm(SWARM)
+swarm.takeoff = (altitude) => command.swarm.takeoff(SWARM, altitude)
+swarm.land = () => command.swarm.land(SWARM)
+swarm.rtl = () => command.swarm.rtl(SWARM)
+swarm.goto = (x, y, z) => command.swarm.goto(SWARM, x, y, z) // every member flies to the same point
+swarm.alt = (altitude) => command.swarm.members(SWARM).map((id) => gcs.alt(id, altitude))
+swarm.stop = () => command.swarm.members(SWARM).map((id) => gcs.stop(id))
+swarm.members = () => command.swarm.members(SWARM)
+
+gcs.swarm = swarm
 window.gcs = gcs
 window.swarm = swarm
 
-// commands typed in the dev server terminal (test/testTerminal.js); dotted names reach swarm, e.g. "swarm.alt"
+// --- Dev server terminal (see test/testTerminal.js) --------------------------
+
+// "swarm takeoff 5" and "swarm.takeoff 5" both find gcs.swarm.takeoff; a used second word leaves args.
+function findCommand(name, args) {
+  let found = gcs
+  for (const part of name.split(".")) found = found?.[part]
+  if (typeof found?.[args[0]] === "function" && Object.hasOwn(found, args[0])) found = found[args.shift()]
+  return found
+}
+
 import.meta.hot?.on("gcs:cmd", ({ name, args }) => {
-  let fn = name.split(".").reduce((o, k) => o?.[k], gcs)
-  if (fn && Object.hasOwn(fn, args[0]) && typeof fn[args[0]] === "function") fn = fn[args.shift()] // "swarm goto ..." works like "swarm.goto ..."
-  let out
-  try {
-    out =
-      typeof fn === "function"
-        ? (fn(...args.map((a) => (isNaN(a) ? a : +a))) ?? "ok")
-        : `unknown command "${name}", try: ${Object.keys(gcs).join(", ")}, swarm.<command>`
-  } catch (e) {
-    out = e.message
+  const fn = findCommand(name, args)
+  let result
+  if (typeof fn !== "function") {
+    result = `unknown command "${name}", try: ${Object.keys(gcs).join(", ")}, swarm.<command>`
+  } else {
+    try {
+      result = fn(...args.map((text) => (isNaN(text) ? text : Number(text)))) ?? "ok"
+    } catch (error) {
+      result = error.message
+    }
   }
-  import.meta.hot.send("gcs:out", String(out))
+  import.meta.hot.send("gcs:out", String(result))
 })

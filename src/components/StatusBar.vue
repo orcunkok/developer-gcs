@@ -1,5 +1,7 @@
 <script setup>
 import { Menu, PanelsLeftBottom, Square, Columns2, Grid2x2 } from 'lucide-vue-next'
+import { useTelemetryStore } from '../stores/useTelemetry.js'
+import { useCommandsStore } from '../stores/useCommands.js'
 
 defineProps({
   navbarOpen: Boolean,
@@ -8,6 +10,16 @@ defineProps({
 })
 
 defineEmits(['toggle-navbar', 'toggle-layout-edit', 'select-layout'])
+
+const telemetry = useTelemetryStore()
+const commands = useCommandsStore()
+
+// IMPORTANT: fix later. Sends the command to every vehicle one by one, for debugging only.
+// It should be one swarm command, but the commands store has no "all vehicles" swarm yet,
+// and putting everyone in one group would overwrite the swarm groups the user picked.
+function all(name) {
+  for (const vehicle of Object.values(telemetry.id)) commands[name](vehicle.id)
+}
 
 const layouts = [
   { id: '1x1', icon: Square },
@@ -22,6 +34,8 @@ const layouts = [
       <Menu :size="16" />
     </button>
     <span class="status-bar__label">status bar</span>
+    <button @click="all('arm')">Arm</button>
+    <button @click="all('disarm')">Disarm</button>
     <button class="status-bar__menu-btn status-bar__layout-btn" @click="$emit('toggle-layout-edit')" :class="{ active: layoutEditing }">
       <PanelsLeftBottom :size="16" />
     </button>
