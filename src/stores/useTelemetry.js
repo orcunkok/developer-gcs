@@ -1,58 +1,94 @@
 import { shallowRef, shallowReactive } from 'vue'
 import { defineStore } from 'pinia'
 
-// every telemetry field a vehicle can have -> its values and their units; links (e.g. network/useMavlink.js) convert their protocol into these
-// adding a field: list it here, then fill it in each link that can provide it; a value is null when the vehicle reports it as unknown
-export const FIELDS = Object.freeze({
-  state: { type: '', armed: '' }, // type 'quadrotor', 'plane', … 'unknown'; armed bool
-  attitude: { roll: 'rad', pitch: 'rad', yaw: 'rad', rollSpeed: 'rad/s', pitchSpeed: 'rad/s', yawSpeed: 'rad/s' },
-  localPosition: { x: 'm', y: 'm', z: 'm', vx: 'm/s', vy: 'm/s', vz: 'm/s' }, // NED
-  globalPosition: { lat: 'deg', lon: 'deg', alt: 'm', relativeAlt: 'm', vx: 'm/s', vy: 'm/s', vz: 'm/s', heading: 'deg' }, // alt MSL, relativeAlt above home, v NED
-  velocity: { airspeed: 'm/s', groundspeed: 'm/s', climb: 'm/s' },
-  battery: { voltage: 'V', current: 'A', remaining: '%' },
-  gps: { fixType: '', satellites: '', hdop: '', vdop: '' }, // fixType 0-1 no fix, 2 2D, 3 3D, 4 DGPS, 5 RTK float, 6 RTK fixed
-  status: { load: '%', dropRate: '%' }, // CPU load, packets lost
-  link: { rssi: '', remRssi: '', noise: '', remNoise: '', rxErrors: '' }, // signal values 0-254
-})
+// one container per vehicle, everything it has in app units; each property is tracked on its own,
+// so a change wakes only readers of that vehicle's property
+// adding telemetry: add it here, then fill it in each link (e.g. network/useMavlink.js); zeros or null until the vehicle sends it
+function createVehicle(id) {
+  return shallowReactive({
+    id, //unique drone id
+    name: `Drone ${id}`, //name, if not set automatically filled.
+    state: null, // last command accepted for it ('arm', 'takeoff', …), null before the first
+    swarm: null, // swarm group number, null when in none
+    type: null, // ('quadrotor', 'plane', … 'unknown')
+    is_armed: null, // (bool)
 
-// one tracked property per field, null until first written: a write wakes only readers of that vehicle's field
-function createVehicle() {
-  const vehicle = {}
-  for (const field in FIELDS) vehicle[field] = null
-  return shallowReactive(vehicle)
+    attitude: {
+      roll: 0,
+      pitch: 0,
+      yaw: 0,
+    }, // rad
+    local: {
+      x: 0,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0
+    }, // m, m/s (NED)
+    global: {
+      lat: 0,
+      lon: 0,
+      alt: 0
+    }, // deg, m MSL
+    velocity: {
+      airspeed: 0,
+      groundspeed: 0,
+      climb: 0
+    }, // m/s
+    battery: null, // voltage (V), current (A), remaining (%)
+    gps: null, // fixType (0-1 no fix, 2 2D, 3 3D, 4 DGPS, 5 RTK float, 6 RTK fixed), satellites, hdop, vdop
+    status: null, // load (% CPU), dropRate (% packets lost)
+    link: null, // rssi, remRssi, noise, remNoise (0-254), rxErrors
+  })
 }
 
-// true when b holds the same values as a (flat objects from links)
+// vehicle properties owned by the app; links cannot write them
+const APP_FIELDS = new Set(['id', 'name', 'state', 'swarm'])
+
+// true when b holds the same value as a: equal plain values, or flat objects with equal values
 function same(a, b) {
-  if (!a) return false
+  if (a === b) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null) return false
   for (const k in b) if (a[k] !== b[k]) return false
   return true
 }
 
-// shared telemetry for every vehicle: links add and write, everything else reads, e.g. id[1].battery?.voltage
+// every vehicle and its data; data only, no links or routing (that is the network's job)
+// mission critical: nothing here throws; invalid calls are ignored and return false
+// links add() vehicles and write() telemetry; components read, e.g. id[1].attitude.roll, id[1].battery?.voltage
 // vehicle ids are the app's own, never a protocol's: each link maps its vehicles to the id add() gives it
 export const useTelemetryStore = defineStore('telemetry', () => {
   const id = shallowRef({}) // vehicle id -> vehicle; replaced only when a vehicle is added or removed
 
+  // the vehicle with id n, or undefined; whole-number ids only, so '1' or 'constructor' find nothing
+  function get(n) {
+    return Number.isInteger(n) && Object.hasOwn(id.value, n) ? id.value[n] : undefined
+  }
+
   // new vehicle under the smallest free id (1, 2, …), so ids stay short and restart at 1 once all are gone
   function add() {
     let n = 1
-    while (id.value[n]) n++
-    id.value = { ...id.value, [n]: createVehicle() }
+    while (Object.hasOwn(id.value, n)) n++
+    id.value = { ...id.value, [n]: createVehicle(n) }
     return n
   }
 
-  // value must be a new object: changing one already written does not notify readers; repeated values wake no one
+  // value is a plain value (type, arm) or a new object: changing one already written does not notify readers
+  // repeated values wake no one; null, undefined and functions are refused
   function write(n, field, value) {
-    const vehicle = id.value[n]
+    const vehicle = get(n)
+    if (!vehicle || APP_FIELDS.has(field) || !Object.hasOwn(vehicle, field) || value == null || typeof value === 'function') return false
     if (!same(vehicle[field], value)) vehicle[field] = value
+    return true
   }
 
   function remove(n) {
-    if (!id.value[n]) return
+    if (!get(n)) return false
     const { [n]: _, ...rest } = id.value
     id.value = rest
+    return true
   }
 
-  return { id, add, write, remove }
+  return { id, get, add, write, remove }
 })

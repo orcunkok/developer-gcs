@@ -13,7 +13,7 @@
 - [ ] Verify MAVLink 2 signatures (signed frames are accepted unchecked)
 - [ ] Non-autopilot components (gimbal, companion computer)
 - [ ] Multiple batteries per vehicle (`BATTERY_STATUS`)
-- [ ] Flight mode in `state` (`HEARTBEAT.custom_mode` decodes differently for ArduPilot and PX4)
+- [ ] Flight mode as its own telemetry field (`HEARTBEAT.custom_mode` decodes differently for ArduPilot and PX4)
 - [ ] Sensor health in `status` (`SYS_STATUS` sensor bitmasks), once something displays it
 
 ## Map
@@ -23,7 +23,7 @@
 
 ## Test
 - [ ] Fake drones speaking MAVLink bytes through `useMavlink`, so the codec runs in test mode
-- [ ] VTOL and plane models next to `testFPV.js`
+- [ ] VTOL and plane models next to `MockFPV.js`
 - [ ] Swarm collision avoidance for `swarm.goto`
 
 ## Performance

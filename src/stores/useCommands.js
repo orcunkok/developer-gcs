@@ -1,38 +1,62 @@
 import { defineStore } from 'pinia'
+import { useTelemetryStore } from './useTelemetry.js'
 
-// every command the app can send -> its params and their units, in argument order; every argument is a finite number
-// links (e.g. network/useMavlink.js) encode the ones they support; adding a command: list it here, then encode it in each link
-export const COMMANDS = Object.freeze({
-  arm: {},
-  disarm: {},
-  takeoff: { alt: 'm' }, // above home
-  land: {},
-  rtl: {},
-  goto: { x: 'm', y: 'm', z: 'm' }, // local NED
-})
-
-// shared command path to every vehicle: links connect the vehicles they own, everything else sends
-// every command goes through send, so store.$onAction sees them all
+// commands to one vehicle, e.g. command.takeoff(1, 10), and to a swarm, e.g. command.swarm.takeoff(1, 10)
+// data only, no links or routing (that is the network's job)
+// mission critical: nothing here throws; each returns true when accepted, false when the vehicle or swarm is unknown or an argument is invalid
+// links act on accepted commands with command.$onAction(({ name, args, after }) => after((accepted) => …))
+// adding a command: add it to commands below (swarm gets it too), then handle it in each link (e.g. network/useMavlink.js)
 export const useCommandsStore = defineStore('commands', () => {
-  const links = new Map() // vehicle id -> (command, args) => void
+  const telemetry = useTelemetryStore()
 
-  function connect(id, deliver) {
-    links.set(id, deliver)
+  // records the command as the vehicle's state when the vehicle exists and the arguments are valid
+  function accept(n, name, valid = true) {
+    const vehicle = telemetry.get(n)
+    if (!vehicle || !valid) return false
+    vehicle.state = name
+    return true
   }
 
-  function disconnect(id) {
-    links.delete(id)
+  const finite = (...values) => values.every(Number.isFinite)
+
+  const commands = {
+    arm: (n) => accept(n, 'arm'),
+    disarm: (n) => accept(n, 'disarm'),
+    takeoff: (n, alt) => accept(n, 'takeoff', finite(alt)),
+    land: (n) => accept(n, 'land'),
+    rtl: (n) => accept(n, 'rtl'),
+    goto: (n, x, y, z) => accept(n, 'goto', finite(x, y, z)),
   }
 
-  function send(id, command, ...args) {
-    const params = Object.hasOwn(COMMANDS, command) && Object.keys(COMMANDS[command])
-    if (!params) throw new Error(`unknown command ${command}`)
-    if (args.length !== params.length || !args.every(Number.isFinite))
-      throw new Error(`${command} takes ${params.length ? params.join(', ') + ' (numbers)' : 'no arguments'}`)
-    const deliver = links.get(id)
-    if (!deliver) throw new Error(`no link to vehicle ${id}`)
-    deliver(command, args)
+  // ids of the vehicles in swarm group
+  const members = (group) => Object.values(telemetry.id).filter((v) => v.swarm === group).map((v) => v.id)
+
+  // swarm groups are whole numbers from 1
+  const swarm = {
+    add(n, group) {
+      const vehicle = telemetry.get(n)
+      if (!vehicle || !Number.isInteger(group) || group < 1) return false
+      vehicle.swarm = group
+      return true
+    },
+    remove(n) {
+      const vehicle = telemetry.get(n)
+      if (!vehicle) return false
+      vehicle.swarm = null
+      return true
+    },
+    members,
   }
 
-  return { connect, disconnect, send }
+  // every command is also a swarm command: sent to each member through the store, so links see it
+  // the first member checks the arguments, so a swarm command reaches every member or none
+  for (const name in commands)
+    swarm[name] = (group, ...args) => {
+      const ids = members(group)
+      for (const n of ids) if (!useCommandsStore()[name](n, ...args)) return false
+      return ids.length > 0
+    }
+
+  // frozen, so swarm stays a plain object and cannot be changed
+  return { ...commands, swarm: Object.freeze(swarm) }
 })

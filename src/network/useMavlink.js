@@ -19,7 +19,8 @@ const known = (v, unknown, scale) => (v === unknown ? null : v * scale)
 // message id -> CRC extra, payload length and the app fields it fills; decode(view) reads fields in wire order (largest type first)
 const MESSAGES = {
   0: { crc: 50, len: 9, fields: { // HEARTBEAT
-    state: (d) => ({ type: TYPES[d.getUint8(4)] ?? 'unknown', armed: (d.getUint8(6) & ARMED) !== 0 }),
+    type: (d) => TYPES[d.getUint8(4)] ?? 'unknown',
+    arm: (d) => (d.getUint8(6) & ARMED) !== 0,
   } },
   1: { crc: 124, len: 31, fields: { // SYS_STATUS
     battery: (d) => ({ voltage: known(d.getUint16(14, true), UINT16_MAX, 1e-3), current: known(d.getInt16(16, true), -1, 1e-2), remaining: known(d.getInt8(30), -1, 1) }),
@@ -29,13 +30,13 @@ const MESSAGES = {
     gps: (d) => ({ fixType: d.getUint8(28), satellites: d.getUint8(29), hdop: known(d.getUint16(20, true), UINT16_MAX, 1e-2), vdop: known(d.getUint16(22, true), UINT16_MAX, 1e-2) }),
   } },
   30: { crc: 39, len: 28, fields: { // ATTITUDE
-    attitude: (d) => ({ roll: d.getFloat32(4, true), pitch: d.getFloat32(8, true), yaw: d.getFloat32(12, true), rollSpeed: d.getFloat32(16, true), pitchSpeed: d.getFloat32(20, true), yawSpeed: d.getFloat32(24, true) }),
+    attitude: (d) => ({ roll: d.getFloat32(4, true), pitch: d.getFloat32(8, true), yaw: d.getFloat32(12, true) }),
   } },
   32: { crc: 185, len: 28, fields: { // LOCAL_POSITION_NED
-    localPosition: (d) => ({ x: d.getFloat32(4, true), y: d.getFloat32(8, true), z: d.getFloat32(12, true), vx: d.getFloat32(16, true), vy: d.getFloat32(20, true), vz: d.getFloat32(24, true) }),
+    local: (d) => ({ x: d.getFloat32(4, true), y: d.getFloat32(8, true), z: d.getFloat32(12, true), vx: d.getFloat32(16, true), vy: d.getFloat32(20, true), vz: d.getFloat32(24, true) }),
   } },
   33: { crc: 104, len: 28, fields: { // GLOBAL_POSITION_INT
-    globalPosition: (d) => ({ lat: d.getInt32(4, true) / 1e7, lon: d.getInt32(8, true) / 1e7, alt: d.getInt32(12, true) / 1e3, relativeAlt: d.getInt32(16, true) / 1e3, vx: d.getInt16(20, true) / 100, vy: d.getInt16(22, true) / 100, vz: d.getInt16(24, true) / 100, heading: known(d.getUint16(26, true), UINT16_MAX, 1e-2) }),
+    global: (d) => ({ lat: d.getInt32(4, true) / 1e7, lon: d.getInt32(8, true) / 1e7, alt: d.getInt32(12, true) / 1e3 }), // alt MSL
   } },
   74: { crc: 20, len: 20, fields: { // VFR_HUD
     velocity: (d) => ({ airspeed: d.getFloat32(0, true), groundspeed: d.getFloat32(4, true), climb: d.getFloat32(12, true) }),
@@ -56,7 +57,7 @@ function commandLong(sys, command, ...params) {
   return [76, 152, p]
 }
 
-// app command -> (sys, ...args) => [message id, CRC extra, payload DataView]
+// app command (a commands store action) -> (sys, ...args) => [message id, CRC extra, payload DataView]
 const COMMANDS = {
   arm: (sys) => commandLong(sys, 400, 1), // MAV_CMD_COMPONENT_ARM_DISARM
   disarm: (sys) => commandLong(sys, 400, 0),
@@ -93,6 +94,7 @@ export function useMavlink(transmit) {
   const telemetry = useTelemetryStore()
   const commands = useCommandsStore()
   const ids = new Map() // MAVLink system id -> app vehicle id
+  const systems = new Map() // app vehicle id -> MAVLink system id
   const payload = new Uint8Array(255) // reused; MAVLink 2 trims trailing zero bytes, so short payloads are zero-filled here
   const view = new DataView(payload.buffer)
   let pending = EMPTY // bytes of an incomplete frame from the last chunk
@@ -109,17 +111,27 @@ export function useMavlink(transmit) {
     transmit(frame)
   }
 
-  // first message from a vehicle: it appears in telemetry and becomes reachable for commands
+  // first message from a vehicle: it appears in telemetry and its commands are sent from here on
   function connect(sys) {
     const id = telemetry.add()
     ids.set(sys, id)
-    commands.connect(id, (command, args) => {
-      const encode = COMMANDS[command]
-      if (!encode) throw new Error(`${command} is not available over MAVLink`)
-      transmitFrame(encode(sys, ...args))
-    })
+    systems.set(id, sys)
     return id
   }
+
+  // commands the store accepted for this connection's vehicles; detached: lives until close(), not a component
+  const unsubscribe = commands.$onAction(({ name, args, after }) => {
+    after((accepted) => {
+      const sys = systems.get(args[0])
+      const encode = COMMANDS[name]
+      if (!accepted || sys === undefined || !encode) return
+      try {
+        transmitFrame(encode(sys, ...args.slice(1)))
+      } catch (e) {
+        console.error(`MAVLink: ${name} to vehicle ${args[0]} not sent`, e) // never reaches the caller
+      }
+    })
+  }, true)
 
   function receive(bytes) {
     let buf = bytes
@@ -154,13 +166,12 @@ export function useMavlink(transmit) {
     pending = i < buf.length ? buf.slice(i) : EMPTY
   }
 
-  // the connection is gone: its vehicles leave both stores
+  // the connection is gone: its vehicles leave telemetry and no more commands are sent
   function close() {
-    for (const id of ids.values()) {
-      commands.disconnect(id)
-      telemetry.remove(id)
-    }
+    unsubscribe()
+    for (const id of ids.values()) telemetry.remove(id)
     ids.clear()
+    systems.clear()
   }
 
   return { receive, close }

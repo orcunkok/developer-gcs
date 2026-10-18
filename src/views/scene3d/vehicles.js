@@ -1,11 +1,11 @@
 import { watch, effectScope } from "vue";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import fpvUrl from "/assets/fpv.glb?url";
+import fpvUrl from "/assets/AirLoop002.glb?url";
 import { useLayoutStore } from "../../stores/layout.js";
 import { useTelemetryStore } from "../../stores/useTelemetry.js";
 
-// model URL by vehicle type (telemetry state.type)
+// model URL by vehicle type (telemetry type)
 const MODEL_BY_TYPE = { quadrotor: fpvUrl };
 const MODEL_SIZE = 0.6; // m, longest side after scaling
 const SCALE_DISTANCE = 8; // m, true size inside this camera distance, growing linearly beyond it
@@ -81,9 +81,9 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
         const scope = effectScope();
         sources.set(id, { vehicle, scope });
         scope.run(() => {
-            watch(() => vehicle.state?.type, (type) => loadModel(group, type), { immediate: true });
+            watch(() => vehicle.type, (type) => loadModel(group, type), { immediate: true });
             watch(
-                () => vehicle.localPosition,
+                () => vehicle.local,
                 (p) => {
                     if (!p || group.position.equals(p)) return;
                     group.position.set(p.x, p.y, p.z);

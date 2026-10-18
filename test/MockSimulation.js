@@ -1,38 +1,45 @@
 // test link: simulated FPV drones writing to the telemetry store like a real link, driven by window.gcs and the dev server terminal
-import { create, step } from "./testFPV.js"
+import { create, step } from "./MockFPV.js"
 import { useLayoutStore } from "../src/stores/layout.js"
 import { useTelemetryStore } from "../src/stores/useTelemetry.js"
 import { useCommandsStore } from "../src/stores/useCommands.js"
 
 const DT = 0.02 // 50 Hz telemetry
-const STATE_EVERY = 50 // ticks, 1 Hz like a real autopilot heartbeat
+const HEARTBEAT_EVERY = 50 // ticks, 1 Hz like a real autopilot
 const RTL_ALT = 15 // m, like ArduPilot's RTL_ALT default
 const telemetry = useTelemetryStore()
-const commands = useCommandsStore()
+const command = useCommandsStore()
 const drones = new Map() // vehicle id -> FPV state
 let tick = 0
 let demoTimer = 0
 let members = [] // swarm selection
 
-function state(id, v) {
-  telemetry.write(id, "state", { type: "quadrotor", armed: v.armed })
+function heartbeat(id, v) {
+  telemetry.write(id, "type", "quadrotor")
+  telemetry.write(id, "arm", v.armed)
 }
 
 function pose(id, { pos, vel, att }) {
-  telemetry.write(id, "localPosition", { x: pos.x, y: pos.y, z: pos.z, vx: vel.x, vy: vel.y, vz: vel.z })
+  telemetry.write(id, "local", { x: pos.x, y: pos.y, z: pos.z, vx: vel.x, vy: vel.y, vz: vel.z })
   telemetry.write(id, "attitude", { roll: att.roll, pitch: att.pitch, yaw: att.yaw })
 }
 
 setInterval(() => {
-  const beat = ++tick % STATE_EVERY === 0
+  const beat = ++tick % HEARTBEAT_EVERY === 0
   for (const [id, v] of drones) {
     step(v, DT)
-    if (beat) state(id, v)
+    if (beat) heartbeat(id, v)
     pose(id, v)
   }
 }, DT * 1000)
 
-// commands arriving from the GCS (see src/stores/useCommands.js)
+// commands the store accepted for a simulated drone, like a real link (see src/network/useMavlink.js)
+command.$onAction(({ name, args, after }) => {
+  after((accepted) => {
+    if (accepted && drones.has(args[0])) receive(args[0], name, args.slice(1))
+  })
+}, true)
+
 function receive(id, command, args) {
   const v = drones.get(id)
   const { pos, target } = v
@@ -70,19 +77,18 @@ const gcs = {
       const id = telemetry.add()
       const v = create(id * 3, (id % 2) * 3)
       drones.set(id, v)
-      commands.connect(id, (command, args) => receive(id, command, args))
-      state(id, v)
+      heartbeat(id, v)
       pose(id, v)
       ids.push(id)
     }
     return ids
   },
-  arm: (id) => commands.send(id, "arm"),
-  disarm: (id) => commands.send(id, "disarm"),
-  takeoff: (id, alt = 5) => commands.send(id, "takeoff", alt),
-  land: (id) => commands.send(id, "land"),
-  rtl: (id) => commands.send(id, "rtl"),
-  goto: (id, north, east, alt) => commands.send(id, "goto", north, east, -alt),
+  arm: (id) => command.arm(id),
+  disarm: (id) => command.disarm(id),
+  takeoff: (id, alt = 5) => command.takeoff(id, alt),
+  land: (id) => command.land(id),
+  rtl: (id) => command.rtl(id),
+  goto: (id, north, east, alt) => command.goto(id, north, east, -alt),
   // climb or descend to alt at the current position
   alt(id, alt) {
     const p = posOf(id)
@@ -101,10 +107,7 @@ const gcs = {
   // remove every drone; numbering starts from 1 again
   reset() {
     clearInterval(demoTimer)
-    for (const k of drones.keys()) {
-      commands.disconnect(k)
-      telemetry.remove(k)
-    }
+    for (const k of drones.keys()) telemetry.remove(k)
     drones.clear()
     members = []
     useLayoutStore().follow = []
