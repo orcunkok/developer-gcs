@@ -2,6 +2,7 @@ import { useTelemetryStore } from '../stores/useTelemetry.js'
 import { useCommandsStore } from '../stores/useCommands.js'
 
 // MAVLink v1/v2 link: everything MAVLink lives here; the stores only see app fields and commands in app units
+// app local frame is NEU (x north, y east, z up); MAVLink's is NED, so z and vz flip sign here, both ways
 
 const GCS_SYSTEM = 255
 const GCS_COMPONENT = 190 // MAV_COMP_ID_MISSIONPLANNER
@@ -32,8 +33,8 @@ const MESSAGES = {
   30: { crc: 39, len: 28, fields: { // ATTITUDE
     attitude: (d) => ({ roll: d.getFloat32(4, true), pitch: d.getFloat32(8, true), yaw: d.getFloat32(12, true) }),
   } },
-  32: { crc: 185, len: 28, fields: { // LOCAL_POSITION_NED
-    local: (d) => ({ x: d.getFloat32(4, true), y: d.getFloat32(8, true), z: d.getFloat32(12, true), vx: d.getFloat32(16, true), vy: d.getFloat32(20, true), vz: d.getFloat32(24, true) }),
+  32: { crc: 185, len: 28, fields: { // LOCAL_POSITION_NED, to NEU
+    local: (d) => ({ x: d.getFloat32(4, true), y: d.getFloat32(8, true), z: -d.getFloat32(12, true), vx: d.getFloat32(16, true), vy: d.getFloat32(20, true), vz: -d.getFloat32(24, true) }),
   } },
   33: { crc: 104, len: 28, fields: { // GLOBAL_POSITION_INT
     global: (d) => ({ lat: d.getInt32(4, true) / 1e7, lon: d.getInt32(8, true) / 1e7, alt: d.getInt32(12, true) / 1e3 }), // alt MSL
@@ -65,10 +66,10 @@ const COMMANDS = {
   land: (sys) => commandLong(sys, 21), // MAV_CMD_NAV_LAND
   rtl: (sys) => commandLong(sys, 20), // MAV_CMD_NAV_RETURN_TO_LAUNCH
   goto: (sys, x, y, z) => {
-    const p = new DataView(new ArrayBuffer(53)) // SET_POSITION_TARGET_LOCAL_NED
+    const p = new DataView(new ArrayBuffer(53)) // SET_POSITION_TARGET_LOCAL_NED, from NEU
     p.setFloat32(4, x, true)
     p.setFloat32(8, y, true)
-    p.setFloat32(12, z, true)
+    p.setFloat32(12, -z, true)
     p.setUint16(48, POSITION_ONLY, true)
     p.setUint8(50, sys)
     p.setUint8(51, AUTOPILOT_COMPONENT)

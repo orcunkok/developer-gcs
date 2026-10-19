@@ -10,9 +10,9 @@ const MODEL_BY_TYPE = { quadrotor: fpvUrl };
 const MODEL_SIZE = 0.6; // m, longest side after scaling
 const SCALE_DISTANCE = 8; // m, true size inside this camera distance, growing linearly beyond it
 const MAX_SCALE = 6; // x, growth cap
-// glTF models face +Z with +Y up (+X left); map that to NED: forward -> north, up -> up, left -> west
-const GLTF_TO_NED = new THREE.Quaternion().setFromRotationMatrix(
-    new THREE.Matrix4().makeBasis(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(1, 0, 0)),
+// glTF models face +Z with +Y up (+X left); map that to the FLU body frame: forward -> +X, left -> +Y, up -> +Z
+const GLTF_TO_FLU = new THREE.Quaternion().setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0)),
 );
 const FOLLOW_GLIDE_MS = 400; // ease time to the followed centroid
 const FOLLOW_DISTANCE = 6; // m, closest comfortable view of one vehicle
@@ -22,6 +22,7 @@ const loader = new GLTFLoader();
 const models = new Map(); // url -> promise of the gltf; each file loads once per page, clones share its geometry
 const euler = new THREE.Euler();
 const quaternion = new THREE.Quaternion();
+const position = new THREE.Vector3();
 const centroid = new THREE.Vector3();
 const glideFrom = new THREE.Vector3();
 const delta = new THREE.Vector3();
@@ -61,13 +62,13 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
         models.get(url).then(({ scene: loaded }) => {
             if (!group.parent || group.children.length) return; // removed or unmounted while loading
             const model = loaded.clone();
-            model.quaternion.copy(GLTF_TO_NED);
+            model.quaternion.copy(GLTF_TO_FLU);
             const box = new THREE.Box3().setFromObject(model);
             const size = box.getSize(new THREE.Vector3());
             model.scale.setScalar(MODEL_SIZE / Math.max(size.x, size.y, size.z));
             box.setFromObject(model);
             const center = box.getCenter(new THREE.Vector3());
-            model.position.set(-center.x, -center.y, -box.max.z); // NED: max z is the lowest point
+            model.position.set(-center.x, -center.y, -box.min.z);
             model.traverse((obj) => (obj.castShadow = obj.isMesh));
             group.add(model);
             changed();
@@ -85,8 +86,10 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
             watch(
                 () => vehicle.local,
                 (p) => {
-                    if (!p || group.position.equals(p)) return;
-                    group.position.set(p.x, p.y, p.z);
+                    if (!p) return;
+                    position.set(p.y, p.x, p.z); // NEU -> ENU
+                    if (group.position.equals(position)) return;
+                    group.position.copy(position);
                     changed();
                 },
                 { immediate: true },
@@ -95,7 +98,8 @@ export function createVehicles(renderer, scene, camera, controls, requestRender)
                 () => vehicle.attitude,
                 (a) => {
                     if (!a) return;
-                    quaternion.setFromEuler(euler.set(a.roll, a.pitch, a.yaw, "ZYX"));
+                    // NED/FRD -> ENU/FLU: yaw is measured from east, counter-clockwise; pitch flips with the body y axis
+                    quaternion.setFromEuler(euler.set(a.roll, -a.pitch, Math.PI / 2 - a.yaw, "ZYX"));
                     if (quaternion.equals(group.quaternion)) return;
                     group.quaternion.copy(quaternion);
                     changed();

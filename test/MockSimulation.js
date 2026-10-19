@@ -1,4 +1,5 @@
 // Test link: simulated drones that use our stores exactly like a real link.
+// The physics are NED like a real autopilot; like useMavlink.js, z and vz flip sign here so the stores only see NEU.
 // Telemetry goes into the telemetry store; commands come from the commands store.
 // Drive it from the browser console (gcs, swarm) or the dev server terminal (npm run dev:test).
 import { create, step } from "./MockFPV.js"
@@ -27,7 +28,7 @@ function sendHeartbeat(id, drone) {
 
 function sendPose(id, drone) {
   const { pos, vel, att } = drone
-  telemetry.write(id, "local", { x: pos.x, y: pos.y, z: pos.z, vx: vel.x, vy: vel.y, vz: vel.z })
+  telemetry.write(id, "local", { x: pos.x, y: pos.y, z: -pos.z, vx: vel.x, vy: vel.y, vz: -vel.z })
   telemetry.write(id, "attitude", { roll: att.roll, pitch: att.pitch, yaw: att.yaw })
 }
 
@@ -52,7 +53,7 @@ command.$onAction(({ name, args, after }) => {
   })
 }, true)
 
-// Positions are NED metres: x north, y east, z down (z = -10 is 10 m up).
+// Simulation positions are NED metres: x north, y east, z down (z = -10 is 10 m up); commands arrive in NEU.
 function applyCommand(drone, name, params) {
   const { pos, home, target } = drone
   switch (name) {
@@ -66,7 +67,7 @@ function applyCommand(drone, name, params) {
       flyTo(drone, pos.x, pos.y, -params[0])
       break
     case "goto":
-      flyTo(drone, params[0], params[1], params[2])
+      flyTo(drone, params[0], params[1], -params[2])
       break
     case "land":
       flyTo(drone, pos.x, pos.y, 0)
@@ -93,7 +94,7 @@ function flyTo(drone, x, y, z) {
 
 const randomBetween = (min, max) => min + Math.random() * (max - min)
 
-// Flight commands are the commands store's own; goto is NED: gcs.goto(1, 10, 5, -8) is 10 m north, 5 m east, 8 m up.
+// Flight commands are the commands store's own; goto is NEU: gcs.goto(1, 10, 5, 8) is 10 m north, 5 m east, 8 m up.
 const gcs = {
   arm: command.arm,
   disarm: command.disarm,
@@ -119,7 +120,7 @@ const gcs = {
   // Climbs or descends to `altitude` metres (up is positive) where it is.
   alt(id, altitude) {
     const drone = drones.get(id)
-    return drone ? command.goto(id, drone.pos.x, drone.pos.y, -altitude) : false
+    return drone ? command.goto(id, drone.pos.x, drone.pos.y, altitude) : false
   },
 
   // Hovers where it is. Without an id: ends the demo and stops every drone.
@@ -130,7 +131,7 @@ const gcs = {
       return
     }
     const drone = drones.get(id)
-    return drone ? command.goto(id, drone.pos.x, drone.pos.y, drone.pos.z) : false
+    return drone ? command.goto(id, drone.pos.x, drone.pos.y, -drone.pos.z) : false
   },
 
   // Removes every drone; ids start from 1 again.
@@ -149,7 +150,7 @@ const gcs = {
     swarm.takeoff(5)
     clearInterval(demoTimer)
     demoTimer = setInterval(() => {
-      for (const id of ids) command.goto(id, randomBetween(-20, 20), randomBetween(-20, 20), -randomBetween(3, 10))
+      for (const id of ids) command.goto(id, randomBetween(-20, 20), randomBetween(-20, 20), randomBetween(3, 10))
     }, 3000)
     return ids
   },

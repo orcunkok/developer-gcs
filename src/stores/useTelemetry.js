@@ -25,7 +25,7 @@ function createVehicle(id) {
       vx: 0,
       vy: 0,
       vz: 0
-    }, // m, m/s (NED)
+    }, // m, m/s (NEU: x north, y east, z up)
     global: {
       lat: 0,
       lon: 0,

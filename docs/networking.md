@@ -62,7 +62,7 @@ const command = useCommandsStore()
 
 command.arm(1)
 command.takeoff(1, 10)
-command.goto(2, 10, 5, -8)
+command.goto(2, 10, 5, 8)   // NEU metres: 10 m north, 5 m east, 8 m up
 
 // swarm: membership and the same commands to every member
 const { swarm } = command

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { useTelemetryStore } from './useTelemetry.js'
 
 // commands to one vehicle, e.g. command.takeoff(1, 10), and to a swarm, e.g. command.swarm.takeoff(1, 10)
+// positions are local NEU metres (x north, y east, z up), like telemetry local: goto(1, 10, 5, 8) is 8 m up
 // data only, no links or routing (that is the network's job)
 // mission critical: nothing here throws; each returns true when accepted, false when the vehicle or swarm is unknown or an argument is invalid
 // links act on accepted commands with command.$onAction(({ name, args, after }) => after((accepted) => …))

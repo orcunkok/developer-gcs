@@ -17,8 +17,8 @@ const COLORS = {
     north: "#4a5562",
 };
 
-// World frame is NED: +X north, +Y east, +Z down (floor at z = 0, altitude = -z).
-const UP = new THREE.Vector3(0, 0, -1);
+// World frame is ENU: +X east, +Y north, +Z up (floor at z = 0, altitude = z). Telemetry is NEU; vehicles.js converts.
+const UP = new THREE.Vector3(0, 0, 1);
 
 const FLOOR_SIZE = 2000; // m
 const CELL_SIZE = 1; // m per checker square
@@ -70,7 +70,7 @@ function createSky() {
             uniform vec3 horizon;
             varying vec3 vDir;
             void main() {
-                float t = pow(max(-vDir.z, 0.0), 0.6); // NED: up is -z
+                float t = pow(max(vDir.z, 0.0), 0.6);
                 gl_FragColor = vec4(mix(horizon, top, t), 1.0);
                 #include <colorspace_fragment>
             }`,
@@ -102,13 +102,12 @@ function createFloor(maxAnisotropy) {
         new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE),
         new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9, metalness: 0 }),
     );
-    floor.rotation.x = Math.PI; // plane lies in XY; flip so its face points up (-z)
-    floor.position.z = FLOOR_DROP; // NED: slightly below z = 0 so nothing at ground level z-fights with it
+    floor.position.z = -FLOOR_DROP; // plane lies in XY facing +z; slightly below z = 0 so nothing at ground level z-fights with it
     floor.receiveShadow = true;
     return floor;
 }
 
-// chevron + "N" painted flat on the floor, pointing north (+X)
+// chevron + "N" painted flat on the floor, pointing north (+Y)
 function createNorthMarker(maxAnisotropy) {
     const px = 256;
     const canvas = document.createElement("canvas");
@@ -147,11 +146,8 @@ function createNorthMarker(maxAnisotropy) {
             metalness: 0,
         }),
     );
-    // texture right -> east (+Y), texture up -> north (+X), face up (-Z)
-    marker.quaternion.setFromRotationMatrix(
-        new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -1)),
-    );
-    marker.position.set(NORTH_MARKER_DISTANCE, 0, 0);
+    // plane is already texture right -> east (+X), texture up -> north (+Y), face up (+Z)
+    marker.position.set(0, NORTH_MARKER_DISTANCE, 0);
     marker.receiveShadow = true;
     return marker;
 }
@@ -161,7 +157,7 @@ function createLights() {
     hemi.position.copy(UP); // hemisphere light's sky direction is its position
 
     const sun = new THREE.DirectionalLight(COLORS.sun, 2.2);
-    sun.position.set(12, 18, -36); // NED: 36 m up, high enough to cover high flights
+    sun.position.set(18, 12, 36); // 36 m up, high enough to cover high flights
     sun.castShadow = true;
     sun.shadow.mapSize.setScalar(2048);
     sun.shadow.camera.left = sun.shadow.camera.bottom = -25;
@@ -202,13 +198,13 @@ onMounted(() => {
 
     camera = new THREE.PerspectiveCamera(50, 1, 0.02, FLOOR_SIZE);
     camera.up.copy(UP);
-    camera.position.set(-5, -4, -3); // south-west of the origin, 3 m up
+    camera.position.set(-4, -5, 3); // south-west of the origin, 3 m up
 
     // right-drag orbit (like the map), left-drag pan, wheel zoom; no damping so nothing moves after release
     controls = new OrbitControls(camera, renderer.domElement);
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     controls.cursorStyle = "grab"; // grab at rest, grabbing while dragging any button
-    controls.target.set(0, 0, -CAMERA_TARGET_HEIGHT);
+    controls.target.set(0, 0, CAMERA_TARGET_HEIGHT);
     controls.maxPolarAngle = Math.PI / 2; // down to the horizon, eye at target height; vehicles.js lifts it while following
     controls.minDistance = 0.1;
     controls.maxDistance = 300;
