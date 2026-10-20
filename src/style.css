@@ -3,7 +3,6 @@
 :root {
     /* ── Surface Colors ── */
     --bg: #ffffff;
-    --border: #e2e2e6;
     --text: #1a1a1a;
 
     /* ── Region Colors ── */
@@ -11,6 +10,15 @@
     --color-left-pane-bg: #f5fffa;
     --color-right-pane-bg: #b0e0e6;
     --color-bottom-strip-bg: #fffacd;
+    --color-navbar-bg: #ffe8cc;
+
+    /* ── Control Colors (flat blocks, one per control, until the real design) ── */
+    --color-arm-bg: #ffc9c9;
+    --color-disarm-bg: #c9f0d2;
+    --color-menu-bg: #d0e8ff;
+    --color-edit-bg: #e8d5ff;
+    --color-grid-picker-bg: #fde2f3;
+    --color-view-picker-bg: #e2f0c8;
 
     /* ── Placeholder View Colors ── */
     --color-placeholder-line: #8a3a3a;
@@ -19,28 +27,24 @@
     /* ── Selector Colors ── */
     --color-select-hover: rgba(0, 0, 0, 0.08);
     --color-select-active: rgba(0, 0, 0, 0.12);
-    --color-picker-bg: #e6e6fa;
 
     /* ── Typography ── */
-    --font-sans: system-ui, "Segoe UI", Roboto, sans-serif;
+    --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
     --font-size-label-sm: 12px;
-    --font-size-label: 13px;
     --font-size-view-label: 16px;
-    --letter-spacing-label: 0.04em;
-    --font-mono:
-        ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+    --font-mono: ui-monospace, 'Cascadia Code', 'Fira Code', Consolas, monospace;
 
     /* ── Layout Dimensions ── */
     --topbar-height: 40px;
     --left-pane-width: 240px;
     --right-pane-width: 280px;
     --bottom-strip-height: 48px;
-    --picker-box-size: 72px;
+    --list-row-height: 32px;
+    --list-width: 160px;
     --icon-btn-size: 28px;
     --icon-btn-inset: 8px;
     --icon-btn-radius: 4px;
     --pane-padding: 8px;
-    --border-width: 1px;
 }
 
 *,
@@ -69,7 +73,7 @@ body {
     overflow: hidden;
 }
 
-*:focus,
-*:focus-visible {
+/* no focus ring on mouse clicks; keyboard focus keeps the browser's ring */
+:focus:not(:focus-visible) {
     outline: none;
 }

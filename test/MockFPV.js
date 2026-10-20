@@ -41,82 +41,82 @@ const clamp = (x, m) => Math.max(-m, Math.min(m, x))
 
 /** @returns {Fpv} */
 export function create(north, east) {
-  return {
-    pos: { x: north, y: east, z: 0 },
-    vel: { x: 0, y: 0, z: 0 },
-    target: { x: north, y: east, z: 0 },
-    att: { roll: 0, pitch: 0, yaw: 0 },
-    tilt: { roll: 0, pitch: 0 },
-    armed: false,
-    landing: false,
-    home: { x: north, y: east },
-    rtl: false,
-    wobble: { roll: 0, pitch: 0 },
-  }
+    return {
+        pos: { x: north, y: east, z: 0 },
+        vel: { x: 0, y: 0, z: 0 },
+        target: { x: north, y: east, z: 0 },
+        att: { roll: 0, pitch: 0, yaw: 0 },
+        tilt: { roll: 0, pitch: 0 },
+        armed: false,
+        landing: false,
+        home: { x: north, y: east },
+        rtl: false,
+        wobble: { roll: 0, pitch: 0 },
+    }
 }
 
 /** @param {Fpv} v */
 export function step(v, dt) {
-  const { pos, vel, target, att, tilt, wobble } = v
-  if (!v.armed) {
-    // motors off: falls if airborne, rests on the floor otherwise
-    vel.x = vel.y = 0
-    vel.z = pos.z < 0 ? vel.z + G * dt : 0
+    const { pos, vel, target, att, tilt, wobble } = v
+    if (!v.armed) {
+        // motors off: falls if airborne, rests on the floor otherwise
+        vel.x = vel.y = 0
+        vel.z = pos.z < 0 ? vel.z + G * dt : 0
+        pos.z = Math.min(0, pos.z + vel.z * dt)
+        if (pos.z === 0) att.roll = att.pitch = tilt.roll = tilt.pitch = 0
+        return
+    }
+    const c = Math.cos(att.yaw)
+    const s = Math.sin(att.yaw)
+
+    // horizontal: desired velocity, then the acceleration (plus drag feedforward) it needs, as a tilt
+    const dx = target.x - pos.x
+    const dy = target.y - pos.y
+    const k = KP * Math.min(1, MAX_SPEED / (KP * Math.hypot(dx, dy) || 1))
+    const ax = KV * (dx * k - vel.x) + DRAG * vel.x
+    const ay = KV * (dy * k - vel.y) + DRAG * vel.y
+    const pitch = clamp(-Math.atan((ax * c + ay * s) / G), MAX_TILT)
+    const roll = clamp(Math.atan((ay * c - ax * s) / G), MAX_TILT)
+    tilt.pitch += clamp(pitch - tilt.pitch, TILT_RATE * dt)
+    tilt.roll += clamp(roll - tilt.roll, TILT_RATE * dt)
+
+    // the actual tilt is what accelerates it
+    const fwd = -G * Math.tan(tilt.pitch)
+    const right = G * Math.tan(tilt.roll)
+    vel.x += (fwd * c - right * s - DRAG * vel.x) * dt
+    vel.y += (fwd * s + right * c - DRAG * vel.y) * dt
+
+    // vertical: separate climb and descent limits, like an autopilot
+    const vz = Math.max(-CLIMB_SPEED, Math.min(DESCENT_SPEED, KP * 2 * (target.z - pos.z)))
+    vel.z += clamp(KV * 2 * (vz - vel.z), VERTICAL_ACCEL) * dt
+
+    pos.x += vel.x * dt
+    pos.y += vel.y * dt
     pos.z = Math.min(0, pos.z + vel.z * dt)
-    if (pos.z === 0) att.roll = att.pitch = tilt.roll = tilt.pitch = 0
-    return
-  }
-  const c = Math.cos(att.yaw)
-  const s = Math.sin(att.yaw)
 
-  // horizontal: desired velocity, then the acceleration (plus drag feedforward) it needs, as a tilt
-  const dx = target.x - pos.x
-  const dy = target.y - pos.y
-  const k = KP * Math.min(1, MAX_SPEED / (KP * Math.hypot(dx, dy) || 1))
-  const ax = KV * (dx * k - vel.x) + DRAG * vel.x
-  const ay = KV * (dy * k - vel.y) + DRAG * vel.y
-  const pitch = clamp(-Math.atan((ax * c + ay * s) / G), MAX_TILT)
-  const roll = clamp(Math.atan((ay * c - ax * s) / G), MAX_TILT)
-  tilt.pitch += clamp(pitch - tilt.pitch, TILT_RATE * dt)
-  tilt.roll += clamp(roll - tilt.roll, TILT_RATE * dt)
+    // nose turns toward the direction of travel
+    if (Math.hypot(vel.x, vel.y) > 2) {
+        const d = Math.atan2(vel.y, vel.x) - att.yaw
+        att.yaw += clamp(Math.atan2(Math.sin(d), Math.cos(d)), YAW_RATE * dt)
+    }
 
-  // the actual tilt is what accelerates it
-  const fwd = -G * Math.tan(tilt.pitch)
-  const right = G * Math.tan(tilt.roll)
-  vel.x += (fwd * c - right * s - DRAG * vel.x) * dt
-  vel.y += (fwd * s + right * c - DRAG * vel.y) * dt
+    // reported attitude: wobble decays toward 0 with a random kick each tick, so it never builds up
+    const decay = dt / WOBBLE_TIME
+    const kick = Math.sqrt(2 * decay)
+    wobble.pitch += kick * gauss() - wobble.pitch * decay
+    wobble.roll += kick * gauss() - wobble.roll * decay
+    const amount = WOBBLE * Math.min(1, Math.hypot(vel.x, vel.y, vel.z) / WOBBLE_FULL_SPEED)
+    att.pitch = tilt.pitch + amount * wobble.pitch
+    att.roll = tilt.roll + amount * wobble.roll
 
-  // vertical: separate climb and descent limits, like an autopilot
-  const vz = Math.max(-CLIMB_SPEED, Math.min(DESCENT_SPEED, KP * 2 * (target.z - pos.z)))
-  vel.z += clamp(KV * 2 * (vz - vel.z), VERTICAL_ACCEL) * dt
+    if (v.rtl && Math.hypot(dx, dy) < 0.3) {
+        target.z = 0
+        v.rtl = false
+        v.landing = true
+    }
 
-  pos.x += vel.x * dt
-  pos.y += vel.y * dt
-  pos.z = Math.min(0, pos.z + vel.z * dt)
-
-  // nose turns toward the direction of travel
-  if (Math.hypot(vel.x, vel.y) > 2) {
-    const d = Math.atan2(vel.y, vel.x) - att.yaw
-    att.yaw += clamp(Math.atan2(Math.sin(d), Math.cos(d)), YAW_RATE * dt)
-  }
-
-  // reported attitude: wobble decays toward 0 with a random kick each tick, so it never builds up
-  const decay = dt / WOBBLE_TIME
-  const kick = Math.sqrt(2 * decay)
-  wobble.pitch += kick * gauss() - wobble.pitch * decay
-  wobble.roll += kick * gauss() - wobble.roll * decay
-  const amount = WOBBLE * Math.min(1, Math.hypot(vel.x, vel.y, vel.z) / WOBBLE_FULL_SPEED)
-  att.pitch = tilt.pitch + amount * wobble.pitch
-  att.roll = tilt.roll + amount * wobble.roll
-
-  if (v.rtl && Math.hypot(dx, dy) < 0.3) {
-    target.z = 0
-    v.rtl = false
-    v.landing = true
-  }
-
-  if (v.landing && pos.z > -0.05) {
-    pos.z = vel.z = 0
-    v.armed = v.landing = false
-  }
+    if (v.landing && pos.z > -0.05) {
+        pos.z = vel.z = 0
+        v.armed = v.landing = false
+    }
 }

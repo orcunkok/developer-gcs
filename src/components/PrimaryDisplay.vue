@@ -1,5 +1,6 @@
 <script setup>
 import { defineAsyncComponent } from 'vue'
+import { useLayoutStore } from '../stores/layout.js'
 import CameraView from '../views/camera/CameraView.vue'
 import TelemetryView from '../views/telemetry/TelemetryView.vue'
 import PlaceholderView from '../views/PlaceholderView.vue'
@@ -8,101 +9,92 @@ import PlaceholderView from '../views/PlaceholderView.vue'
 const MapView = defineAsyncComponent(() => import('../views/map/MapView.vue'))
 const Scene3DView = defineAsyncComponent(() => import('../views/scene3d/Scene3DView.vue'))
 
-defineProps({
-  layout: String,
-  cells: Array,
-  editing: Boolean
-})
-
-defineEmits(['assign-view'])
+const layout = useLayoutStore()
 
 const views = { map: MapView, camera: CameraView, telemetry: TelemetryView, scene3d: Scene3DView }
 const viewIds = Object.keys(views)
 </script>
 
 <template>
-  <!-- cells fill the grid in order; keyed by view id so moving a view to another cell keeps its instance (map/three.js are never remounted) -->
-  <main class="primary-display" :class="`layout-${layout}`">
-    <div v-for="(id, i) in cells" :key="id ?? `empty-${i}`" class="primary-display__cell">
-      <component :is="id ? views[id] : PlaceholderView" />
-      <div v-if="editing" class="primary-display__overlay" @contextmenu.prevent @wheel.prevent>
-        <div class="primary-display__picker">
-          <button
-            v-for="vid in viewIds"
-            :key="vid"
-            class="primary-display__box"
-            :class="{ active: vid === id }"
-            @click="$emit('assign-view', i, vid)"
-          >
-            {{ vid }}
-          </button>
+    <!-- cells fill the grid in order; keyed by view id so moving a view to another cell keeps its instance (map/three.js are never remounted) -->
+    <main class="primary-display" :class="`grid-${layout.grid}`">
+        <div v-for="(id, i) in layout.cells" :key="id ?? `empty-${i}`" class="cell">
+            <component :is="id ? views[id] : PlaceholderView" />
+            <div v-if="layout.editing" class="overlay" @contextmenu.prevent @wheel.prevent>
+                <div class="picker">
+                    <button
+                        v-for="vid in viewIds"
+                        :key="vid"
+                        class="item"
+                        :class="{ active: vid === id }"
+                        @click="layout.assignView(i, vid)"
+                    >
+                        {{ vid }}
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  </main>
+    </main>
 </template>
 
 <style scoped>
 .primary-display {
-  position: absolute;
-  top: var(--topbar-height);
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 0;
-  background: var(--bg);
-  overflow: hidden;
-  display: grid;
+    position: absolute;
+    inset: var(--topbar-height) 0 0 0;
+    z-index: 0;
+    background: var(--bg);
+    overflow: hidden;
+    display: grid;
+    grid-template: 1fr / 1fr;
 }
 
-.layout-1x1 {
-  grid-template-columns: 1fr;
-  grid-template-rows: 1fr;
+.grid-1x2 {
+    grid-template-columns: 1fr 1fr;
 }
 
-.layout-1x2 {
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr;
+.grid-2x2 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
 }
 
-.layout-2x2 {
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+.cell {
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
 }
 
-.primary-display__cell {
-  position: relative;
-  overflow: hidden;
-  min-width: 0;
-  min-height: 0;
+.overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.primary-display__overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.picker {
+    width: var(--list-width);
+    display: flex;
+    flex-direction: column;
+    background: var(--color-view-picker-bg);
 }
 
-.primary-display__picker {
-  display: grid;
-  grid-template-columns: repeat(2, var(--picker-box-size));
+.item {
+    height: var(--list-row-height);
+    padding: 0 var(--pane-padding);
+    border: none;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
 }
 
-.primary-display__box {
-  width: var(--picker-box-size);
-  height: var(--picker-box-size);
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: var(--color-picker-bg);
-  color: var(--text);
-  font-family: var(--font-mono);
-  cursor: pointer;
+.item:hover {
+    background: var(--color-select-hover);
 }
 
-.primary-display__box.active {
-  background: var(--color-select-active);
+.item.active {
+    background: var(--color-select-active);
 }
 </style>

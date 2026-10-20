@@ -1,16 +1,10 @@
 <script setup>
 import { Menu, PanelsLeftBottom, Square, Columns2, Grid2x2 } from 'lucide-vue-next'
+import { useLayoutStore } from '../stores/layout.js'
 import { useTelemetryStore } from '../stores/useTelemetry.js'
 import { useCommandsStore } from '../stores/useCommands.js'
 
-defineProps({
-  navbarOpen: Boolean,
-  layout: String,
-  layoutEditing: Boolean
-})
-
-defineEmits(['toggle-navbar', 'toggle-layout-edit', 'select-layout'])
-
+const layout = useLayoutStore()
 const telemetry = useTelemetryStore()
 const commands = useCommandsStore()
 
@@ -18,112 +12,103 @@ const commands = useCommandsStore()
 // It should be one swarm command, but the commands store has no "all vehicles" swarm yet,
 // and putting everyone in one group would overwrite the swarm groups the user picked.
 function all(name) {
-  for (const vehicle of Object.values(telemetry.id)) commands[name](vehicle.id)
+    for (const vehicle of Object.values(telemetry.id)) commands[name](vehicle.id)
 }
 
-const layouts = [
-  { id: '1x1', icon: Square },
-  { id: '1x2', icon: Columns2 },
-  { id: '2x2', icon: Grid2x2 }
+const grids = [
+    { id: '1x1', icon: Square },
+    { id: '1x2', icon: Columns2 },
+    { id: '2x2', icon: Grid2x2 },
 ]
 </script>
 
 <template>
-  <header class="status-bar">
-    <button class="status-bar__menu-btn" @click="$emit('toggle-navbar')" :class="{ active: navbarOpen }">
-      <Menu :size="16" />
-    </button>
-    <span class="status-bar__label">status bar</span>
-    <button @click="all('arm')">Arm</button>
-    <button @click="all('disarm')">Disarm</button>
-    <button class="status-bar__menu-btn status-bar__layout-btn" @click="$emit('toggle-layout-edit')" :class="{ active: layoutEditing }">
-      <PanelsLeftBottom :size="16" />
-    </button>
-    <div v-if="layoutEditing" class="status-bar__layout-bar">
-      <button
-        v-for="l in layouts"
-        :key="l.id"
-        class="status-bar__layout-opt"
-        :class="{ active: l.id === layout }"
-        @click="$emit('select-layout', l.id)"
-      >
-        <component :is="l.icon" :size="16" />
-      </button>
-    </div>
-  </header>
+    <header class="status-bar">
+        <button class="menu" :class="{ active: layout.navbarOpen }" @click="layout.navbarOpen = !layout.navbarOpen">
+            <Menu :size="16" />
+        </button>
+        <!-- label for debugging only -->
+        <span class="label">status bar</span>
+        <button class="arm" @click="all('arm')">ARM</button>
+        <button class="disarm" @click="all('disarm')">DISARM</button>
+        <button class="edit" :class="{ active: layout.editing }" @click="layout.editing = !layout.editing">
+            <PanelsLeftBottom :size="16" />
+        </button>
+        <div v-if="layout.editing" class="grids">
+            <button v-for="g in grids" :key="g.id" class="grid" :class="{ active: g.id === layout.grid }" @click="layout.selectGrid(g.id)">
+                <component :is="g.icon" :size="16" />
+            </button>
+        </div>
+    </header>
 </template>
 
 <style scoped>
 .status-bar {
-  grid-area: topbar;
-  height: var(--topbar-height);
-  background: var(--color-status-bar-bg);
-  border-bottom: var(--border-width) solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
+    grid-area: topbar;
+    height: var(--topbar-height);
+    background: var(--color-status-bar-bg);
+    display: flex;
+    position: relative;
 }
 
-.status-bar__menu-btn {
-  position: absolute;
-  left: var(--icon-btn-inset);
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-btn-size);
-  height: var(--icon-btn-size);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text);
-  border-radius: var(--icon-btn-radius);
-  padding: 0;
+button {
+    border: none;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
 }
 
-.status-bar__menu-btn:hover {
-  background: var(--color-select-hover);
+.menu,
+.edit,
+.grid {
+    width: var(--topbar-height);
+    height: var(--topbar-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.status-bar__menu-btn.active {
-  background: var(--color-select-active);
+/* equal-width ends keep the middle group centred */
+.menu {
+    margin-right: auto;
+    background: var(--color-menu-bg);
 }
 
-.status-bar__layout-btn {
-  left: auto;
-  right: var(--icon-btn-inset);
+.edit {
+    margin-left: auto;
+    background: var(--color-edit-bg);
 }
 
-.status-bar__layout-bar {
-  position: absolute;
-  top: var(--topbar-height);
-  right: 0;
-  display: flex;
+.label {
+    align-self: center;
+    padding: 0 var(--pane-padding);
 }
 
-.status-bar__layout-opt {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-btn-size);
-  height: var(--icon-btn-size);
-  background: var(--color-picker-bg);
-  color: var(--text);
-  border: none;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
+.arm,
+.disarm {
+    padding: 0 var(--pane-padding);
 }
 
-.status-bar__layout-opt.active {
-  background: var(--color-select-active);
+.arm {
+    background: var(--color-arm-bg);
 }
 
-.status-bar__label {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-label-sm);
-  color: var(--text);
+.disarm {
+    background: var(--color-disarm-bg);
+}
+
+.grids {
+    position: absolute;
+    top: var(--topbar-height);
+    right: 0;
+    display: flex;
+}
+
+.grid {
+    background: var(--color-grid-picker-bg);
+}
+
+.active {
+    background: var(--color-select-active);
 }
 </style>

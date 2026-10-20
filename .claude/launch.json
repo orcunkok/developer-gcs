@@ -1,11 +1,10 @@
 {
-  "version": "0.0.1",
-  "configurations": [
-    {
-      "name": "dev-test",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": ["run", "dev:test"],
-      "port": 5173
-    }
-  ]
+    "version": "0.0.1",
+    "configurations": [
+        {
+            "name": "app",
+            "url": "http://localhost:5173",
+            "port": 5173
+        }
+    ]
 }

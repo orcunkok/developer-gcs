@@ -37,33 +37,33 @@ goto 2 15 -5 8
 land 1
 ```
 
-| Command | Action |
-|---|---|
-| `spawn n` | Add n drones near the origin (default 1) |
-| `arm id` / `disarm id` | Arm / disarm |
-| `takeoff id alt` | Take off to alt metres (default 5, must be armed) |
-| `goto id north east alt` | Fly to a local position in metres |
-| `alt id alt` | Climb or descend to alt metres at the current position |
-| `land id` | Land at the current position, then disarm |
-| `rtl id` | Return to launch: fly to its spawn point at 15 m (or higher if already above), then land |
-| `stop id` | Hover in place; `stop` alone also ends `demo` and stops every drone |
-| `reset` | Remove every drone; numbering starts from 1 again |
-| `demo n` | Spawn n drones (default 4), take off, then random gotos every 3 s |
-| `swarm 1 2 3` | Select drones for swarm commands (`swarm` alone selects all) |
-| `watch id ...` / `watch swarm` | 3D camera follows those drones / the swarm (all drones if no swarm is selected) |
-| `unwatch` | Free the camera (same as `watch` alone) |
-| `swarm.<command> ...` | Send the same command to every selected drone, e.g. `swarm.arm`, `swarm.takeoff 10`, `swarm.alt 100`, `swarm.stop` |
+| Command                        | Action                                                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `spawn n`                      | Add n drones near the origin (default 1)                                                                           |
+| `arm id` / `disarm id`         | Arm / disarm                                                                                                       |
+| `takeoff id alt`               | Take off to alt metres (default 5, must be armed)                                                                  |
+| `goto id north east alt`       | Fly to a local position in metres                                                                                  |
+| `alt id alt`                   | Climb or descend to alt metres at the current position                                                             |
+| `land id`                      | Land at the current position, then disarm                                                                          |
+| `rtl id`                       | Return to launch: fly to its spawn point at 15 m (or higher if already above), then land                           |
+| `stop id`                      | Hover in place; `stop` alone also ends `demo` and stops every drone                                                |
+| `reset`                        | Remove every drone; numbering starts from 1 again                                                                  |
+| `demo n`                       | Spawn n drones (default 4), take off, then random gotos every 3 s                                                  |
+| `swarm 1 2 3`                  | Select drones for swarm commands (`swarm` alone selects all)                                                       |
+| `watch id ...` / `watch swarm` | 3D camera follows those drones / the swarm (all drones if no swarm is selected)                                    |
+| `unwatch`                      | Free the camera (same as `watch` alone)                                                                            |
+| `swarm.<command> ...`          | Send the same command to every selected drone, e.g. `swarm.arm`, `swarm.takeoff 10`, `swarm.alt 100`, `swarm.stop` |
 
 Console style works too: `swarm(1,2,3)`, `swarm.alt(100)`. **Test only:** there is no swarm collision avoidance yet, so `swarm.goto north east alt` moves the swarm's centre to that point and each drone keeps its offset from the centre; the other swarm commands are sent to each member as-is. Unknown commands print the list. Single-letter lines (`r`, `u`, `o`, `c`, `q`, `h`) stay Vite's own shortcuts. The same commands work in the browser console as `gcs.takeoff(1, 10)` and `swarm.alt(100)`.
 
 ## Shortcuts
 
-| Shortcut | Action |
-|---|---|
-| `Ctrl+,` | Toggle left pane |
-| `Ctrl+.` | Toggle bottom strip |
-| `Ctrl+/` | Toggle right pane |
-| `Esc` | Close navbar / exit layout edit mode |
+| Shortcut | Action                               |
+| -------- | ------------------------------------ |
+| `Ctrl+,` | Toggle left pane                     |
+| `Ctrl+.` | Toggle bottom strip                  |
+| `Ctrl+/` | Toggle right pane                    |
+| `Esc`    | Close navbar / exit layout edit mode |
 
 The navbar is opened with the menu button in the status bar. The layout button (right of the status bar) splits the display into 1x1/1x2/2x2 and assigns a view to each cell.
 

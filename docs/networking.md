@@ -11,11 +11,11 @@ The app is split into compartments that only meet through the stores. Each can c
  vehicle ◀─bytes─── network ◀──$onAction────────── stores ◀── command.takeoff(1, 10)
 ```
 
-| Compartment | Files | Job |
-|---|---|---|
-| Stores | `src/stores/useTelemetry.js`, `src/stores/useCommands.js` | Hold and validate app data. Never throw. Know nothing about links or protocols. |
-| Network | `src/network/` | Links, transports, protocols (MAVLink), routing commands to the right link. |
-| On top (later) | — | Link management. |
+| Compartment    | Files                                                     | Job                                                                             |
+| -------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Stores         | `src/stores/useTelemetry.js`, `src/stores/useCommands.js` | Hold and validate app data. Never throw. Know nothing about links or protocols. |
+| Network        | `src/network/`                                            | Links, transports, protocols (MAVLink), routing commands to the right link.     |
+| On top (later) | —                                                         | Link management.                                                                |
 
 Components only ever touch the stores.
 
@@ -25,13 +25,20 @@ Every vehicle is one flat object in `telemetry.id`, keyed by an id the app hands
 
 ```js
 telemetry.id[1] = {
-  id: 1, name: 'Drone 1', state: 'takeoff', swarm: null,
-  type: 'quadrotor', arm: true,
-  attitude: { roll, pitch, yaw },
-  local: { x, y, z, vx, vy, vz },
-  global: { lat, lon, alt },
-  velocity: { airspeed, groundspeed, climb },
-  battery, gps, status, link,   // null until the vehicle sends them (so are type and arm)
+    id: 1,
+    name: 'Drone 1',
+    state: 'takeoff',
+    swarm: null,
+    type: 'quadrotor',
+    arm: true,
+    attitude: { roll, pitch, yaw },
+    local: { x, y, z, vx, vy, vz },
+    global: { lat, lon, alt },
+    velocity: { airspeed, groundspeed, climb },
+    battery,
+    gps,
+    status,
+    link, // null until the vehicle sends them (so are type and arm)
 }
 ```
 
@@ -44,9 +51,9 @@ const telemetry = useTelemetryStore()
 </script>
 
 <template>
-  <div v-for="vehicle in telemetry.id" :key="vehicle.id">
-    {{ vehicle.name }} {{ vehicle.attitude.roll }} {{ vehicle.battery?.voltage }}
-  </div>
+    <div v-for="vehicle in telemetry.id" :key="vehicle.id">
+        {{ vehicle.name }} {{ vehicle.attitude.roll }} {{ vehicle.battery?.voltage }}
+    </div>
 </template>
 ```
 
@@ -62,15 +69,15 @@ const command = useCommandsStore()
 
 command.arm(1)
 command.takeoff(1, 10)
-command.goto(2, 10, 5, 8)   // NEU metres: 10 m north, 5 m east, 8 m up
+command.goto(2, 10, 5, 8) // NEU metres: 10 m north, 5 m east, 8 m up
 
 // swarm: membership and the same commands to every member
 const { swarm } = command
-swarm.add(1, 1)          // drone 1 joins swarm 1
+swarm.add(1, 1) // drone 1 joins swarm 1
 swarm.add(2, 1)
-swarm.takeoff(1, 10)     // every drone in swarm 1
-swarm.members(1)         // [1, 2]
-swarm.remove(1)          // drone 1 leaves its swarm
+swarm.takeoff(1, 10) // every drone in swarm 1
+swarm.members(1) // [1, 2]
+swarm.remove(1) // drone 1 leaves its swarm
 ```
 
 Every command returns `true` when accepted and `false` when the vehicle or swarm does not exist or an argument is invalid. Nothing throws. An accepted command becomes the vehicle's `state`.
@@ -83,16 +90,16 @@ Accepted means the store took it; delivering it is the network's job. A vehicle 
 
 Nothing here throws; every call returns `true`/`false` (or the value) and ignores invalid input.
 
-| Call | Does |
-|---|---|
-| `telemetry.get(id)` | The vehicle, or `undefined` |
-| `telemetry.add()` | New vehicle, returns its id (network only) |
-| `telemetry.write(id, field, value)` | New value for an existing telemetry field: a plain value (`type`, `arm`) or a new object (network only) |
-| `telemetry.remove(id)` | Vehicle leaves (network only) |
-| `command.<name>(id, …values)` | Command to one vehicle |
-| `command.swarm.add(id, group)` / `.remove(id)` | Swarm membership; group is a whole number from 1 |
-| `command.swarm.members(group)` | Ids in that swarm |
-| `command.swarm.<name>(group, …values)` | Command to every member |
+| Call                                           | Does                                                                                                    |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `telemetry.get(id)`                            | The vehicle, or `undefined`                                                                             |
+| `telemetry.add()`                              | New vehicle, returns its id (network only)                                                              |
+| `telemetry.write(id, field, value)`            | New value for an existing telemetry field: a plain value (`type`, `arm`) or a new object (network only) |
+| `telemetry.remove(id)`                         | Vehicle leaves (network only)                                                                           |
+| `command.<name>(id, …values)`                  | Command to one vehicle                                                                                  |
+| `command.swarm.add(id, group)` / `.remove(id)` | Swarm membership; group is a whole number from 1                                                        |
+| `command.swarm.members(group)`                 | Ids in that swarm                                                                                       |
+| `command.swarm.<name>(group, …values)`         | Command to every member                                                                                 |
 
 `write` refuses unknown fields, the app's own fields (`id`, `name`, `state`, `swarm`), `null`, `undefined` and functions.
 
@@ -125,10 +132,14 @@ import { useUDP } from '../network/useUDP.js'
 
 // UDP: listen on 14550 and reply to whoever sent last
 let peer
-const udp = useUDP({ port: 14550 }, (bytes, host, port) => {
-  peer = { host, port }
-  mavlink.receive(bytes)
-}, () => mavlink.close())
+const udp = useUDP(
+    { port: 14550 },
+    (bytes, host, port) => {
+        peer = { host, port }
+        mavlink.receive(bytes)
+    },
+    () => mavlink.close(),
+)
 const mavlink = useMavlink((bytes) => peer && udp.send(bytes, peer.host, peer.port))
 ```
 
@@ -137,7 +148,11 @@ import { useMavlink } from '../network/useMavlink.js'
 import { useTCP } from '../network/useTCP.js'
 
 // TCP, e.g. SITL on 5760
-const tcp = useTCP({ host: '127.0.0.1', port: 5760 }, (bytes) => mavlink.receive(bytes), () => mavlink.close())
+const tcp = useTCP(
+    { host: '127.0.0.1', port: 5760 },
+    (bytes) => mavlink.receive(bytes),
+    () => mavlink.close(),
+)
 const mavlink = useMavlink(tcp.send)
 ```
 
