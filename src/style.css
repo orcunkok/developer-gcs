@@ -20,6 +20,12 @@
     --color-grid-picker-bg: #fde2f3;
     --color-view-picker-bg: #e2f0c8;
 
+    /* ── Glass Colors (no backdrop-filter: a blur would be recomputed on every map frame) ── */
+    --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.25));
+    --glass-shadow: rgba(0, 0, 0, 0.25);
+    --glass-text: #1a1a1a;
+    --glass-text-dim: #5a5a5a;
+
     /* ── Placeholder View Colors ── */
     --color-placeholder-line: #8a3a3a;
     --color-placeholder-bg: #ffffff;
@@ -45,6 +51,14 @@
     --icon-btn-inset: 8px;
     --icon-btn-radius: 4px;
     --pane-padding: 8px;
+    --drone-list-width: 12vw; /* two boxes and the gap between them */
+    --drone-height: 7vh;
+    --drone-gap: 1.2vmin;
+    --drone-width: calc((var(--drone-list-width) - var(--drone-gap)) / 2);
+    --drone-padding: 0.8vmin;
+    --drone-icon-size: 1.1vmin;
+    --drone-font-size: 0.95vmin; /* readouts: font scales with the box so the text always fits */
+    --drone-readout-gap: 0.3vmin;
 }
 
 *,

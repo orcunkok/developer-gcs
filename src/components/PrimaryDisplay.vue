@@ -3,6 +3,7 @@ import { defineAsyncComponent } from 'vue'
 import { useLayoutStore } from '../stores/layout.js'
 import CameraView from '../views/camera/CameraView.vue'
 import TelemetryView from '../views/telemetry/TelemetryView.vue'
+import DroneList from './DroneList.vue'
 import PlaceholderView from '../views/PlaceholderView.vue'
 
 // map code (maplibre, ~1 MB) and three.js (~0.5 MB) load in their own chunks so the layout paints first
@@ -34,6 +35,7 @@ const viewIds = Object.keys(views)
                 </div>
             </div>
         </div>
+        <DroneList />
     </main>
 </template>
 
